@@ -13,5 +13,5 @@ You can also install it manually by running the following command from within th
 
 	git clone https://github.com/AlUlkesh/sd_save_intermediate_images/ extensions/sd_save_intermediate_images
 
-## To-do
-Support DDIM and PLMS
+## Limitations
+Does not work with DDIM and PLMS
