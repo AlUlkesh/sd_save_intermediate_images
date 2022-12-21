@@ -6,8 +6,7 @@ A custom extension for [AUTOMATIC1111/stable-diffusion-webui](https://github.com
 
 ## Installation
 
-The extension can be installed directly from within the **Extensions** tab within the Webui
-<img src="images/installation.png"/>
+The extension can be installed directly from within the **Extensions** tab within the Webui.
 
 You can also install it manually by running the following command from within the webui directory:
 
