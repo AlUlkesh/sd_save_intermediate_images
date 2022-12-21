@@ -1,7 +1,7 @@
 import os
 
 from modules import scripts
-from modules.processing import Processed, process_images, fix_seed
+from modules.processing import Processed, process_images, fix_seed, create_infotext
 from modules.sd_samplers import KDiffusionSampler, sample_to_image
 from modules.images import save_image, FilenameGenerator, get_next_sequence_number
 from modules.shared import opts
@@ -108,7 +108,8 @@ class Script(scripts.Script):
                                 os.makedirs(intermed_path, exist_ok=True)
                                 # Set filename with pattern. Two versions depending on opts.save_images_add_number
                                 fullfn = Script.save_image_only_get_name(image, p.outpath_samples, "", int(p.seed), p.prompt, p=p)
-                                base_name = os.path.basename(fullfn)
+                                base_name, _ = os.path.splitext(fullfn)
+                                base_name = os.path.basename(base_name)
                                 substrings = base_name.split('-')
                                 if opts.save_images_add_number:
                                     intermed_number = substrings[0]
@@ -128,9 +129,17 @@ class Script(scripts.Script):
                                 intermed_number = f"{intermed_number:0{digits}}"
                                 p.outpath_intermed_number.append(intermed_number)
 
-                        p.outpath_intermed_pattern = p.outpath_intermed_number[index] + "-%%%-" + p.outpath_intermed_suffix
+                        intermed_suffix = p.outpath_intermed_suffix.replace(str(int(p.seed)), str(int(p.all_seeds[index])), 1)
+                        
+                        p.outpath_intermed_pattern = p.outpath_intermed_number[index] + "-%%%-" + intermed_suffix
                         filename = p.outpath_intermed_pattern.replace("%%%", f"{current_step:03}")
-                        save_image(image, p.outpath_intermed, "", p=p, forced_filename=filename)
+
+                        #generate png-info
+                        infotext = create_infotext(p, p.all_prompts, p.all_seeds, p.all_subseeds, comments=[], position_in_batch=index % p.batch_size, iteration=index // p.batch_size)
+                        infotext = f'{infotext}, intermediate: {current_step:03d}'
+
+                        #save intermediate image
+                        save_image(image, p.outpath_intermed, "", info=infotext, p=p, forced_filename=filename)
 
                 return orig_callback_state(self, d)
 
