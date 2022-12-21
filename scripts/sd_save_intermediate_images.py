@@ -91,32 +91,46 @@ class Script(scripts.Script):
                 current_step = d["i"]
 
                 if current_step % every_n == 0:
-                    if intermediate_type == "Denoised":
-                        image = sample_to_image(d["denoised"])
-                    else:
-                        image = sample_to_image(d["x"])
-
-                    if current_step == 0:
-                        # Set custom folder for saving intermediates on first step
-                        intermed_path = os.path.join(p.outpath_samples, "intermediates")
-                        os.makedirs(intermed_path, exist_ok=True)
-                        # Set filename with pattern. Two versions depending on opts.save_images_add_number
-                        fullfn = Script.save_image_only_get_name(image, p.outpath_samples, "", int(p.seed), p.prompt, p=p)
-                        base_name = os.path.basename(fullfn)
-                        substrings = base_name.split('-')
-                        if opts.save_images_add_number:
-                            intermed_number = substrings[0]
-                            intermed_number = f"{intermed_number:05}"
-                            intermed_suffix = '-'.join(substrings[1:])
+                    for index in range(0, p.batch_size):
+                        if intermediate_type == "Denoised":
+                            image = sample_to_image(d["denoised"], index=index)
                         else:
-                            intermed_number = get_next_sequence_number(intermed_path, "")
-                            intermed_number = f"{intermed_number:06}"
-                            intermed_suffix = '-'.join(substrings[0:])
-                        intermed_path = os.path.join(intermed_path, intermed_number)
-                        p.outpath_intermed = intermed_path
-                        p.outpath_intermed_pattern = intermed_number + "-%%%-" + intermed_suffix
-                    filename = p.outpath_intermed_pattern.replace("%%%", f"{current_step:03}")
-                    save_image(image, p.outpath_intermed, "", seed=int(p.seed), prompt=p.prompt, p=p, forced_filename=filename)
+                            image = sample_to_image(d["x"], index=index)
+
+                        if current_step == 0:
+                            if opts.save_images_add_number:
+                                digits = 5
+                            else:
+                                digits = 6
+                            if index == 0:
+                                # Set custom folder for saving intermediates on first step of first image
+                                intermed_path = os.path.join(p.outpath_samples, "intermediates")
+                                os.makedirs(intermed_path, exist_ok=True)
+                                # Set filename with pattern. Two versions depending on opts.save_images_add_number
+                                fullfn = Script.save_image_only_get_name(image, p.outpath_samples, "", int(p.seed), p.prompt, p=p)
+                                base_name = os.path.basename(fullfn)
+                                substrings = base_name.split('-')
+                                if opts.save_images_add_number:
+                                    intermed_number = substrings[0]
+                                    intermed_number = f"{intermed_number:0{digits}}"
+                                    intermed_suffix = '-'.join(substrings[1:])
+                                else:
+                                    intermed_number = get_next_sequence_number(intermed_path, "")
+                                    intermed_number = f"{intermed_number:0{digits}}"
+                                    intermed_suffix = '-'.join(substrings[0:])
+                                intermed_path = os.path.join(intermed_path, intermed_number)
+                                p.outpath_intermed = intermed_path
+                                p.outpath_intermed_number = []
+                                p.outpath_intermed_number.append(intermed_number)
+                                p.outpath_intermed_suffix = intermed_suffix
+                            else:
+                                intermed_number = int(p.outpath_intermed_number[0]) + index
+                                intermed_number = f"{intermed_number:0{digits}}"
+                                p.outpath_intermed_number.append(intermed_number)
+
+                        p.outpath_intermed_pattern = p.outpath_intermed_number[index] + "-%%%-" + p.outpath_intermed_suffix
+                        filename = p.outpath_intermed_pattern.replace("%%%", f"{current_step:03}")
+                        save_image(image, p.outpath_intermed, "", p=p, forced_filename=filename)
 
                 return orig_callback_state(self, d)
 
