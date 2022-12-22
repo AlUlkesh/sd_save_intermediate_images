@@ -134,12 +134,14 @@ class Script(scripts.Script):
                         p.outpath_intermed_pattern = p.outpath_intermed_number[index] + "-%%%-" + intermed_suffix
                         filename = p.outpath_intermed_pattern.replace("%%%", f"{current_step:03}")
 
-                        #generate png-info
-                        infotext = create_infotext(p, p.all_prompts, p.all_seeds, p.all_subseeds, comments=[], position_in_batch=index % p.batch_size, iteration=index // p.batch_size)
-                        infotext = f'{infotext}, intermediate: {current_step:03d}'
+                        #don't save first step
+                        if current_step > 0:
+                            #generate png-info
+                            infotext = create_infotext(p, p.all_prompts, p.all_seeds, p.all_subseeds, comments=[], position_in_batch=index % p.batch_size, iteration=index // p.batch_size)
+                            infotext = f'{infotext}, intermediate: {current_step:03d}'
 
-                        #save intermediate image
-                        save_image(image, p.outpath_intermed, "", info=infotext, p=p, forced_filename=filename)
+                            #save intermediate image
+                            save_image(image, p.outpath_intermed, "", info=infotext, p=p, forced_filename=filename)
 
                 return orig_callback_state(self, d)
 
