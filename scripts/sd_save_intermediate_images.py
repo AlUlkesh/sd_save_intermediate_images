@@ -4,7 +4,7 @@ from modules import scripts
 from modules.processing import Processed, process_images, fix_seed, create_infotext
 from modules.sd_samplers import KDiffusionSampler, sample_to_image
 from modules.images import save_image, FilenameGenerator, get_next_sequence_number
-from modules.shared import opts
+from modules.shared import opts, state
 
 import gradio as gr
 
@@ -36,10 +36,15 @@ class Script(scripts.Script):
                         label="Save every N images",
                         value="5"
                     )
-        return [is_active, intermediate_type, every_n]
+                with gr.Group():
+                    stop_at_n = gr.Number(
+                        label="Stop at N images (must be 0 = don't stop early or a multiple of 'Save every N images')",
+                        value="0"
+                    )
+        return [is_active, intermediate_type, every_n, stop_at_n]
 
     def save_image_only_get_name(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
-        #for description see modules.images.save_image
+        #for description see modules.images.save_image, same code up saving of files
         
         namegen = FilenameGenerator(p, seed, prompt, image)
 
@@ -82,13 +87,29 @@ class Script(scripts.Script):
 
         return (fullfn)
 
-    def process(self, p, is_active, intermediate_type, every_n):
+    def process(self, p, is_active, intermediate_type, every_n, stop_at_n):
         if is_active:
             def callback_state(self, d):
                 """
                 callback_state runs after each processing step
                 """
                 current_step = d["i"]
+
+                #stop_at_n must be a multiple of every_n
+                if not hasattr(p, 'intermed_stop_at_n'):
+                    if stop_at_n % every_n == 0:
+                        p.intermed_stop_at_n = stop_at_n
+                    else:
+                        p.intermed_stop_at_n = int(stop_at_n / every_n) * every_n
+
+                #Highres. fix requires 2 passes
+                if not hasattr(p, 'intermed_final_pass'):
+                    if p.enable_hr:
+                        p.intermed_first_pass = True
+                        p.intermed_final_pass = False
+                    else:
+                        p.intermed_first_pass = True
+                        p.intermed_final_pass = True
 
                 if current_step % every_n == 0:
                     for index in range(0, p.batch_size):
@@ -97,7 +118,8 @@ class Script(scripts.Script):
                         else:
                             image = sample_to_image(d["x"], index=index)
 
-                        if current_step == 0:
+                        # Inits per seed
+                        if current_step == 0 and p.intermed_first_pass:
                             if opts.save_images_add_number:
                                 digits = 5
                             else:
@@ -120,19 +142,23 @@ class Script(scripts.Script):
                                     intermed_number = f"{intermed_number:0{digits}}"
                                     intermed_suffix = '-'.join(substrings[0:])
                                 intermed_path = os.path.join(intermed_path, intermed_number)
-                                p.outpath_intermed = intermed_path
-                                p.outpath_intermed_number = []
-                                p.outpath_intermed_number.append(intermed_number)
-                                p.outpath_intermed_suffix = intermed_suffix
+                                p.intermed_outpath = intermed_path
+                                p.intermed_outpath_number = []
+                                p.intermed_outpath_number.append(intermed_number)
+                                p.intermed_outpath_suffix = intermed_suffix
                             else:
-                                intermed_number = int(p.outpath_intermed_number[0]) + index
+                                intermed_number = int(p.intermed_outpath_number[0]) + index
                                 intermed_number = f"{intermed_number:0{digits}}"
-                                p.outpath_intermed_number.append(intermed_number)
+                                p.intermed_outpath_number.append(intermed_number)
 
-                        intermed_suffix = p.outpath_intermed_suffix.replace(str(int(p.seed)), str(int(p.all_seeds[index])), 1)
-                        
-                        p.outpath_intermed_pattern = p.outpath_intermed_number[index] + "-%%%-" + intermed_suffix
-                        filename = p.outpath_intermed_pattern.replace("%%%", f"{current_step:03}")
+                        intermed_suffix = p.intermed_outpath_suffix.replace(str(int(p.seed)), str(int(p.all_seeds[index])), 1)
+                        intermed_pattern = p.intermed_outpath_number[index] + "-%%%-" + intermed_suffix
+                        if p.enable_hr:
+                            if p.intermed_final_pass:
+                                intermed_pattern = intermed_pattern.replace("%%%", "%%%-p2")
+                            else:
+                                intermed_pattern = intermed_pattern.replace("%%%", "%%%-p1")
+                        filename = intermed_pattern.replace("%%%", f"{current_step:03}")
 
                         #don't save first step
                         if current_step > 0:
@@ -140,12 +166,29 @@ class Script(scripts.Script):
                             infotext = create_infotext(p, p.all_prompts, p.all_seeds, p.all_subseeds, comments=[], position_in_batch=index % p.batch_size, iteration=index // p.batch_size)
                             infotext = f'{infotext}, intermediate: {current_step:03d}'
 
-                            #save intermediate image
-                            save_image(image, p.outpath_intermed, "", info=infotext, p=p, forced_filename=filename)
+                            if current_step == p.intermed_stop_at_n:
+                                if (p.enable_hr and p.intermed_final_pass) or not p.enable_hr:
+                                    #early stop for this seed reached, prevent normal save, save as final image
+                                    p.do_not_save_samples = True
+                                    save_image(image, p.outpath_samples, "", p.all_seeds[index], p.prompt, opts.samples_format, info=infotext, p=p)
+                                    if index == p.batch_size - 1:
+                                        #early stop for final seed and final pass reached, interrupt further processing
+                                        state.interrupt()
+                                else:
+                                    #save intermediate image
+                                    save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename)
+
+                                    # first pass ended
+                                    if index == p.batch_size - 1:
+                                        p.intermed_first_pass = False
+                                        p.intermed_final_pass = True
+                            else:
+                                #save intermediate image
+                                save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename)
 
                 return orig_callback_state(self, d)
 
             setattr(KDiffusionSampler, "callback_state", callback_state)
 
-    def postprocess(self, p, processed, is_active, intermediate_type, every_n):
+    def postprocess(self, p, processed, is_active, intermediate_type, every_n, stop_at_n):
         setattr(KDiffusionSampler, "callback_state", orig_callback_state)
