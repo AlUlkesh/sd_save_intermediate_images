@@ -95,13 +95,6 @@ class Script(scripts.Script):
                 """
                 current_step = d["i"]
 
-                #stop_at_n must be a multiple of every_n
-                if not hasattr(p, 'intermed_stop_at_n'):
-                    if stop_at_n % every_n == 0:
-                        p.intermed_stop_at_n = stop_at_n
-                    else:
-                        p.intermed_stop_at_n = int(stop_at_n / every_n) * every_n
-
                 #Highres. fix requires 2 passes
                 if not hasattr(p, 'intermed_final_pass'):
                     if p.enable_hr:
@@ -110,6 +103,24 @@ class Script(scripts.Script):
                     else:
                         p.intermed_first_pass = True
                         p.intermed_final_pass = True
+
+                #Check if pass 1 has finished
+                if hasattr(p, 'intermed_max_step'):
+                    if current_step >= p.intermed_max_step:
+                        p.intermed_max_step = current_step
+                    else:
+                        p.intermed_first_pass = False
+                        p.intermed_final_pass = True
+                        p.intermed_max_step = current_step
+                else:
+                        p.intermed_max_step = current_step
+
+                #stop_at_n must be a multiple of every_n
+                if not hasattr(p, 'intermed_stop_at_n'):
+                    if stop_at_n % every_n == 0:
+                        p.intermed_stop_at_n = stop_at_n
+                    else:
+                        p.intermed_stop_at_n = int(stop_at_n / every_n) * every_n
 
                 if current_step % every_n == 0:
                     for index in range(0, p.batch_size):
@@ -177,11 +188,6 @@ class Script(scripts.Script):
                                 else:
                                     #save intermediate image
                                     save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename)
-
-                                    # first pass ended
-                                    if index == p.batch_size - 1:
-                                        p.intermed_first_pass = False
-                                        p.intermed_final_pass = True
                             else:
                                 #save intermediate image
                                 save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename)
