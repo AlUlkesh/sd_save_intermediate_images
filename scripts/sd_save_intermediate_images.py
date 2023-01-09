@@ -95,9 +95,14 @@ class Script(scripts.Script):
                 """
                 current_step = d["i"]
 
+                if hasattr(p, "enable_hr"):
+                    hr = p.enable_hr
+                else:
+                    hr = False 
+
                 #Highres. fix requires 2 passes
                 if not hasattr(p, 'intermed_final_pass'):
-                    if p.enable_hr:
+                    if hr:
                         p.intermed_first_pass = True
                         p.intermed_final_pass = False
                     else:
@@ -164,7 +169,7 @@ class Script(scripts.Script):
 
                         intermed_suffix = p.intermed_outpath_suffix.replace(str(int(p.seed)), str(int(p.all_seeds[index])), 1)
                         intermed_pattern = p.intermed_outpath_number[index] + "-%%%-" + intermed_suffix
-                        if p.enable_hr:
+                        if hr:
                             if p.intermed_final_pass:
                                 intermed_pattern = intermed_pattern.replace("%%%", "%%%-p2")
                             else:
@@ -178,7 +183,7 @@ class Script(scripts.Script):
                             infotext = f'{infotext}, intermediate: {current_step:03d}'
 
                             if current_step == p.intermed_stop_at_n:
-                                if (p.enable_hr and p.intermed_final_pass) or not p.enable_hr:
+                                if (hr and p.intermed_final_pass) or not hr:
                                     #early stop for this seed reached, prevent normal save, save as final image
                                     p.do_not_save_samples = True
                                     save_image(image, p.outpath_samples, "", p.all_seeds[index], p.prompt, opts.samples_format, info=infotext, p=p)
