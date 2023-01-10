@@ -14,7 +14,7 @@ You can also install it manually by running the following command from within th
 
 ## Output
 
-Once the image generation begins, the intermediate images will start saving in a directory under a new \outputs\txt2img-images\intermediates directory.
+Once the image generation begins, the intermediate images will start saving in a directory under a new \outputs\(*txt2img or img2img*)-images\intermediates directory.
 
 ## Limitations
 Does not work with DDIM and PLMS
