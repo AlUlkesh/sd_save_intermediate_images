@@ -12,5 +12,9 @@ You can also install it manually by running the following command from within th
 
 	git clone https://github.com/AlUlkesh/sd_save_intermediate_images/ extensions/sd_save_intermediate_images
 
+## Output
+
+Once the image generation begins, the intermediate images will start saving in a directory under a new \outputs\txt2img-images\intermediates directory.
+
 ## Limitations
 Does not work with DDIM and PLMS
