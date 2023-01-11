@@ -1,5 +1,10 @@
+import logging
 import os
+import platform
+import re
+import sys
 
+from modules import paths
 from modules import scripts
 from modules.processing import Processed, process_images, fix_seed, create_infotext
 from modules.sd_samplers import KDiffusionSampler, sample_to_image
@@ -21,27 +26,32 @@ class Script(scripts.Script):
         with gr.Group():
             with gr.Accordion("Save intermediate images", open=False):
                 with gr.Group():
-                    is_active = gr.Checkbox(
+                    ssii_is_active = gr.Checkbox(
                         label="Save intermediate images",
                         value=False
                     )
                 with gr.Group():
-                    intermediate_type = gr.Radio(
+                    ssii_intermediate_type = gr.Radio(
                         label="Should the intermediate images be denoised or noisy?",
                         choices=["Denoised", "Noisy"],
                         value="Denoised"
                     )
                 with gr.Group():
-                    every_n = gr.Number(
+                    ssii_every_n = gr.Number(
                         label="Save every N images",
                         value="5"
                     )
                 with gr.Group():
-                    stop_at_n = gr.Number(
+                    ssii_stop_at_n = gr.Number(
                         label="Stop at N images (must be 0 = don't stop early or a multiple of 'Save every N images')",
                         value="0"
                     )
-        return [is_active, intermediate_type, every_n, stop_at_n]
+                with gr.Group():
+                    ssii_debug = gr.Checkbox(
+                        label="Debug",
+                        value=False
+                    )
+        return [ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_debug]
 
     def save_image_only_get_name(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
         #for description see modules.images.save_image, same code up saving of files
@@ -87,8 +97,32 @@ class Script(scripts.Script):
 
         return (fullfn)
 
-    def process(self, p, is_active, intermediate_type, every_n, stop_at_n):
-        if is_active:
+    def process(self, p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_debug):
+        if ssii_is_active:
+
+            # Debug logging
+            if ssii_debug:
+                mode = logging.DEBUG
+                logging.basicConfig(level=mode, format='%(asctime)s %(levelname)s %(message)s')
+            else:
+                mode = logging.WARNING
+            logger = logging.getLogger(__name__)
+            logger.setLevel(mode)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"{sys.executable} {sys.version}")
+                logger.debug(f"{platform.system()} {platform.version()}")
+                try:
+                    git = os.environ.get('GIT', "git")
+                    commit_hash = os.popen(f"{git} rev-parse HEAD").read()
+                except Exception as e:
+                    commit_hash = e
+                logger.debug(f"{commit_hash}")
+                logger.debug(f"{paths.script_path}")
+                with open("ui-config.json", "r") as f:
+                    logger.debug(f.read())
+                with open("config.json", "r") as f:
+                    logger.debug(f.read())
+
             def callback_state(self, d):
                 """
                 callback_state runs after each processing step
@@ -99,6 +133,10 @@ class Script(scripts.Script):
                     hr = p.enable_hr
                 else:
                     hr = False 
+
+                logger.debug(f"ssii_intermediate_type, ssii_every_n, ssii_stop_at_n: {ssii_intermediate_type}, {ssii_every_n}, {ssii_stop_at_n}")
+                logger.debug(f"Step: {current_step}")
+                logger.debug(f"hr: {hr}")
 
                 #Highres. fix requires 2 passes
                 if not hasattr(p, 'intermed_final_pass'):
@@ -120,19 +158,22 @@ class Script(scripts.Script):
                 else:
                         p.intermed_max_step = current_step
 
-                #stop_at_n must be a multiple of every_n
-                if not hasattr(p, 'intermed_stop_at_n'):
-                    if stop_at_n % every_n == 0:
-                        p.intermed_stop_at_n = stop_at_n
+                #ssii_stop_at_n must be a multiple of ssii_every_n
+                if not hasattr(p, 'intermed_ssii_stop_at_n'):
+                    if ssii_stop_at_n % ssii_every_n == 0:
+                        p.intermed_ssii_stop_at_n = ssii_stop_at_n
                     else:
-                        p.intermed_stop_at_n = int(stop_at_n / every_n) * every_n
+                        p.intermed_ssii_stop_at_n = int(ssii_stop_at_n / ssii_every_n) * ssii_every_n
 
-                if current_step % every_n == 0:
+                if current_step % ssii_every_n == 0:
                     for index in range(0, p.batch_size):
-                        if intermediate_type == "Denoised":
+                        if ssii_intermediate_type == "Denoised":
                             image = sample_to_image(d["denoised"], index=index)
                         else:
                             image = sample_to_image(d["x"], index=index)
+
+                        logger.debug(f"ssii_intermediate_type, ssii_every_n, ssii_stop_at_n: {ssii_intermediate_type}, {ssii_every_n}, {ssii_stop_at_n}")
+                        logger.debug(f"Step: {current_step}")
 
                         # Inits per seed
                         if current_step == 0 and p.intermed_first_pass:
@@ -166,6 +207,18 @@ class Script(scripts.Script):
                                 intermed_number = int(p.intermed_outpath_number[0]) + index
                                 intermed_number = f"{intermed_number:0{digits}}"
                                 p.intermed_outpath_number.append(intermed_number)
+                            logger.debug(f"p.intermed_outpath: {p.intermed_outpath}")
+                            match = re.search(r"^\d+", p.intermed_outpath_suffix)
+                            if match:
+                                match_num = match.group()
+                            else:
+                                match_num = ""
+                            logger.debug(f"p.intermed_outpath_suffix: {match_num}")
+                            logger.debug(f"p.steps: {p.steps}")
+                            logger.debug(f"p.all_seeds: {p.all_seeds}")
+                            logger.debug(f"p.cfg_scale: {p.cfg_scale}")
+                            logger.debug(f"p.sampler_name: {p.sampler_name}")
+                            logger.debug(f"p.batch_size: {p.batch_size}")
 
                         intermed_suffix = p.intermed_outpath_suffix.replace(str(int(p.seed)), str(int(p.all_seeds[index])), 1)
                         intermed_pattern = p.intermed_outpath_number[index] + "-%%%-" + intermed_suffix
@@ -182,7 +235,7 @@ class Script(scripts.Script):
                             infotext = create_infotext(p, p.all_prompts, p.all_seeds, p.all_subseeds, comments=[], position_in_batch=index % p.batch_size, iteration=index // p.batch_size)
                             infotext = f'{infotext}, intermediate: {current_step:03d}'
 
-                            if current_step == p.intermed_stop_at_n:
+                            if current_step == p.intermed_ssii_stop_at_n:
                                 if (hr and p.intermed_final_pass) or not hr:
                                     #early stop for this seed reached, prevent normal save, save as final image
                                     p.do_not_save_samples = True
@@ -193,13 +246,17 @@ class Script(scripts.Script):
                                 else:
                                     #save intermediate image
                                     save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename)
+                                    filename_clean = re.sub(r"[^\d-]", "%", filename)
+                                    logger.debug(f"filename: {filename_clean}")
                             else:
                                 #save intermediate image
                                 save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename)
+                                filename_clean = re.sub(r"[^\d-]", "%", filename)
+                                logger.debug(f"filename: {filename_clean}")
 
                 return orig_callback_state(self, d)
 
             setattr(KDiffusionSampler, "callback_state", callback_state)
 
-    def postprocess(self, p, processed, is_active, intermediate_type, every_n, stop_at_n):
+    def postprocess(self, p, processed, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_debug):
         setattr(KDiffusionSampler, "callback_state", orig_callback_state)
