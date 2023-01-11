@@ -16,5 +16,7 @@ You can also install it manually by running the following command from within th
 
 Once the image generation begins, the intermediate images will start saving in a directory under a new \outputs\(*txt2img or img2img*)-images\intermediates directory.
 
+Please be aware that _Image creation progress preview mode_ in the webui's settings affects how the intermediate images are created.
+
 ## Limitations
 Does not work with DDIM and PLMS

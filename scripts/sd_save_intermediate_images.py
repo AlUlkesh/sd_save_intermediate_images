@@ -23,34 +23,35 @@ class Script(scripts.Script):
         return scripts.AlwaysVisible
 
     def ui(self, is_img2img):
-        with gr.Group():
-            with gr.Accordion("Save intermediate images", open=False):
-                with gr.Group():
-                    ssii_is_active = gr.Checkbox(
-                        label="Save intermediate images",
-                        value=False
-                    )
-                with gr.Group():
-                    ssii_intermediate_type = gr.Radio(
-                        label="Should the intermediate images be denoised or noisy?",
-                        choices=["Denoised", "Noisy"],
-                        value="Denoised"
-                    )
-                with gr.Group():
-                    ssii_every_n = gr.Number(
-                        label="Save every N images",
-                        value="5"
-                    )
-                with gr.Group():
-                    ssii_stop_at_n = gr.Number(
-                        label="Stop at N images (must be 0 = don't stop early or a multiple of 'Save every N images')",
-                        value="0"
-                    )
-                with gr.Group():
-                    ssii_debug = gr.Checkbox(
-                        label="Debug",
-                        value=False
-                    )
+        with gr.Accordion("Save intermediate images", open=False):
+            with gr.Row():
+                ssii_is_active = gr.Checkbox(
+                    label="Save intermediate images",
+                    value=False
+                )
+            with gr.Row():
+                ssii_intermediate_type = gr.Radio(
+                    label="Should the intermediate images be denoised or noisy?",
+                    choices=["Denoised", "Noisy"],
+                    value="Denoised"
+                )
+            with gr.Row():
+                ssii_every_n = gr.Number(
+                    label="Save every N images",
+                    value="5"
+                )
+            with gr.Row():
+                ssii_stop_at_n = gr.Number(
+                    label="Stop at N images (must be 0 = don't stop early or a multiple of 'Save every N images')",
+                    value="0"
+                )
+            with gr.Row():
+                ssii_debug = gr.Checkbox(
+                    label="Debug",
+                    value=False
+                )
+        with gr.Row():
+            gr.HTML('<div style="padding-bottom: 0.7em;"></div><div></div>')
         return [ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_debug]
 
     def save_image_only_get_name(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
