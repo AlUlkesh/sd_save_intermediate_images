@@ -9,7 +9,7 @@ from modules import scripts
 from modules.processing import Processed, process_images, fix_seed, create_infotext
 from modules.sd_samplers import KDiffusionSampler, sample_to_image
 from modules.images import save_image, FilenameGenerator, get_next_sequence_number
-from modules.shared import opts, state
+from modules.shared import opts, state, cmd_opts
 
 import gradio as gr; gr.__version__
 
@@ -119,9 +119,9 @@ class Script(scripts.Script):
                 logger.debug(f"{commit_hash}")
                 logger.debug(f"Gradio {gr.__version__}")
                 logger.debug(f"{paths.script_path}")
-                with open("ui-config.json", "r") as f:
+                with open(cmd_opts.ui_config_file, "r") as f:
                     logger.debug(f.read())
-                with open("config.json", "r") as f:
+                with open(cmd_opts.ui_settings_file, "r") as f:
                     logger.debug(f.read())
 
             def callback_state(self, d):
@@ -193,11 +193,11 @@ class Script(scripts.Script):
                                 substrings = base_name.split('-')
                                 if opts.save_images_add_number:
                                     intermed_number = substrings[0]
-                                    intermed_number = f"{intermed_number:0{digits}}"
+                                    intermed_number = str(intermed_number).zfill(digits)
                                     intermed_suffix = '-'.join(substrings[1:])
                                 else:
                                     intermed_number = get_next_sequence_number(intermed_path, "")
-                                    intermed_number = f"{intermed_number:0{digits}}"
+                                    intermed_number = str(intermed_number).zfill(digits)
                                     intermed_suffix = '-'.join(substrings[0:])
                                 intermed_path = os.path.join(intermed_path, intermed_number)
                                 p.intermed_outpath = intermed_path
@@ -206,7 +206,7 @@ class Script(scripts.Script):
                                 p.intermed_outpath_suffix = intermed_suffix
                             else:
                                 intermed_number = int(p.intermed_outpath_number[0]) + index
-                                intermed_number = f"{intermed_number:0{digits}}"
+                                intermed_number = str(intermed_number).zfill(digits)
                                 p.intermed_outpath_number.append(intermed_number)
                             logger.debug(f"p.intermed_outpath: {p.intermed_outpath}")
                             match = re.search(r"^\d+", p.intermed_outpath_suffix)
