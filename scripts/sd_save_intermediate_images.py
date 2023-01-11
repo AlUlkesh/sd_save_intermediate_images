@@ -11,7 +11,7 @@ from modules.sd_samplers import KDiffusionSampler, sample_to_image
 from modules.images import save_image, FilenameGenerator, get_next_sequence_number
 from modules.shared import opts, state
 
-import gradio as gr
+import gradio as gr; gr.__version__
 
 orig_callback_state = KDiffusionSampler.callback_state
 
@@ -117,6 +117,7 @@ class Script(scripts.Script):
                 except Exception as e:
                     commit_hash = e
                 logger.debug(f"{commit_hash}")
+                logger.debug(f"Gradio {gr.__version__}")
                 logger.debug(f"{paths.script_path}")
                 with open("ui-config.json", "r") as f:
                     logger.debug(f.read())
