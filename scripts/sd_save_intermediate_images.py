@@ -207,12 +207,14 @@ class Script(scripts.Script):
                             else:
                                 digits = 6
                             if index == 0:
-                                # Set custom folder for saving intermediates on first step of first image
-                                intermed_path = os.path.join(p.outpath_samples, "intermediates")
-                                os.makedirs(intermed_path, exist_ok=True)
-                                # Set filename with pattern. Two versions depending on opts.save_images_add_number
+                                # Get output-dir-infos
                                 fullfn = Script.save_image_only_get_name(image, p.outpath_samples, "", int(p.seed), p.prompt, p=p)
                                 base_name, _ = os.path.splitext(fullfn)
+                                # Set custom folder for saving intermediates on first step of first image
+                                full_outpath = os.path.dirname(base_name)
+                                intermed_path = os.path.join(full_outpath, "intermediates")
+                                os.makedirs(intermed_path, exist_ok=True)
+                                # Set filename with pattern. Two versions depending on opts.save_images_add_number
                                 base_name = os.path.basename(base_name)
                                 substrings = base_name.split('-')
                                 if opts.save_images_add_number:
@@ -272,14 +274,14 @@ class Script(scripts.Script):
                                         state.interrupt()
                                 else:
                                     #save intermediate image
-                                    save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename)
+                                    save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename, save_to_dirs=False)
                                     filename_clean = re.sub(r"[^\d-]", "%", filename)
                                     logger.debug(f"filename: {filename_clean}")
                                     if ssii_video and ((hr and p.intermed_first_pass and ssii_video_hires == "1") or (hr and p.intermed_final_pass and ssii_video_hires == "2") or not hr):
                                         p.intermed_files.append((filename + ".png", None))
                             else:
                                 #save intermediate image
-                                save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename)
+                                save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename, save_to_dirs=False)
                                 filename_clean = re.sub(r"[^\d-]", "%", filename)
                                 logger.debug(f"filename: {filename_clean}")
                                 if ssii_video and ((hr and p.intermed_first_pass and ssii_video_hires == "1") or (hr and p.intermed_final_pass and ssii_video_hires == "2") or not hr):
