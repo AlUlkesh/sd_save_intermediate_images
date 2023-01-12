@@ -12,11 +12,15 @@ You can also install it manually by running the following command from within th
 
 	git clone https://github.com/AlUlkesh/sd_save_intermediate_images/ extensions/sd_save_intermediate_images
 
+## Limitations
+Does not work with DDIM and PLMS
+
 ## Output
 
 Once the image generation begins, the intermediate images will start saving in a directory under a new \outputs\(*txt2img or img2img*)-images\intermediates directory.
 
 Please be aware that _Image creation progress preview mode_ in the webui's settings affects how the intermediate images are created.
 
-## Limitations
-Does not work with DDIM and PLMS
+You can almost make a video out of the intermediate images:
+<img src="images/13655-sample.gif"/>
+<img src="images/13642-sample.gif"/>
