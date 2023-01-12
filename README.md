@@ -22,5 +22,5 @@ Once the image generation begins, the intermediate images will start saving in a
 Please be aware that _Image creation progress preview mode_ in the webui's settings affects how the intermediate images are created.
 
 You can almost make a video out of the intermediate images:
-<img src="images/13655-sample.gif"/>
+<p><img src="images/13655-sample.gif"/>
 <img src="images/13642-sample.gif"/>
