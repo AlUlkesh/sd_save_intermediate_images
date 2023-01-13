@@ -232,6 +232,7 @@ class Script(scripts.Script):
                                 p.intermed_outpath_suffix = intermed_suffix
                                 # For video logic
                                 p.intermed_files = []
+                                p.intermed_pattern = {}
                             else:
                                 intermed_number = int(p.intermed_outpath_number[0]) + index
                                 intermed_number = str(intermed_number).zfill(digits)
@@ -250,13 +251,14 @@ class Script(scripts.Script):
                             logger.debug(f"p.batch_size: {p.batch_size}")
 
                         intermed_suffix = p.intermed_outpath_suffix.replace(str(int(p.seed)), str(int(p.all_seeds[index])), 1)
-                        p.intermed_pattern = p.intermed_outpath_number[index] + "-%%%-" + intermed_suffix
+                        intermed_pattern = p.intermed_outpath_number[index] + "-%%%-" + intermed_suffix
                         if hr:
                             if p.intermed_final_pass:
-                                p.intermed_pattern = p.intermed_pattern.replace("%%%", "%%%-p2")
+                                intermed_pattern = intermed_pattern.replace("%%%", "%%%-p2")
                             else:
-                                p.intermed_pattern = p.intermed_pattern.replace("%%%", "%%%-p1")
-                        filename = p.intermed_pattern.replace("%%%", f"{current_step:03}")
+                                intermed_pattern = intermed_pattern.replace("%%%", "%%%-p1")
+                        p.intermed_pattern[int(p.all_seeds[index])] = intermed_pattern
+                        filename = intermed_pattern.replace("%%%", f"{current_step:03}")
 
                         #don't save first step
                         if current_step > 0:
@@ -278,14 +280,14 @@ class Script(scripts.Script):
                                     filename_clean = re.sub(r"[^\d-]", "%", filename)
                                     logger.debug(f"filename: {filename_clean}")
                                     if ssii_video and ((hr and p.intermed_first_pass and ssii_video_hires == "1") or (hr and p.intermed_final_pass and ssii_video_hires == "2") or not hr):
-                                        p.intermed_files.append((filename + ".png", None))
+                                        p.intermed_files.append((index, filename + ".png", None))
                             else:
                                 #save intermediate image
                                 save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename, save_to_dirs=False)
                                 filename_clean = re.sub(r"[^\d-]", "%", filename)
                                 logger.debug(f"filename: {filename_clean}")
                                 if ssii_video and ((hr and p.intermed_first_pass and ssii_video_hires == "1") or (hr and p.intermed_final_pass and ssii_video_hires == "2") or not hr):
-                                    p.intermed_files.append((filename + ".png", None))
+                                    p.intermed_files.append((index, filename + ".png", None))
                 return orig_callback_state(self, d)
 
             setattr(KDiffusionSampler, "callback_state", callback_state)
@@ -297,37 +299,44 @@ class Script(scripts.Script):
         if ssii_is_active and ssii_video and not state.skipped and not state.interrupted:
             logger = logging.getLogger(__name__)
             # ffmpeg requires sequential numbers in filenames (that is exactly +1)
-            for i, (name_org, _) in enumerate(p.intermed_files):
+            p.intermed_files.sort(key=lambda x: x[0])
+            prev_batch = None
+            for real_i, (batch_no, name_org, _) in enumerate(p.intermed_files):
+                if prev_batch != batch_no:
+                    i = 0
                 num_seq = '{:03}'.format(i)
                 name_seq = re.sub(r'^\d+-(\d{3})', f'{name_org.split("-")[0]}-{num_seq}', name_org)
-                p.intermed_files[i] = (name_org, name_seq)
+                p.intermed_files[real_i] = (batch_no, name_org, name_seq)
                 path_name_org = os.path.join(p.intermed_outpath, name_org)
                 path_name_seq = os.path.join(p.intermed_outpath, name_seq)
                 os.replace(path_name_org, path_name_seq)
                 logger.debug(f"replace {path_name_org} / {path_name_seq}")
+                i = i + 1
+                prev_batch = batch_no
 
-            img_file = p.intermed_pattern.replace("%%%", "%03d") + ".png"
-            vid_file = p.intermed_pattern.replace("%%%-", "") + "." + ssii_video_format
-            if hasattr(p, "enable_hr"):
-                if p.enable_hr and ssii_video_hires == "1":
-                    img_file = img_file.replace("-p2-", "-p1-")
-                    vid_file = vid_file.replace("-p2-", "-p1-")
-            path_img_file = os.path.join(p.intermed_outpath, img_file) 
-            path_vid_file = os.path.join(p.intermed_outpath, vid_file) 
-            if ssii_video_format == "gif":
-                ff = FFmpeg(
-                    inputs={path_img_file: f"-framerate {int(ssii_video_fps)}"},
-                    outputs={path_vid_file: '-filter_complex "split[v1][v2]; [v1]palettegen=stats_mode=full [palette]; [v2][palette]paletteuse=dither=sierra2_4a"'}
-                )
-            else:
-                ff = FFmpeg(
-                    inputs={path_img_file: f"-framerate {int(ssii_video_fps)}"},
-                    outputs={path_vid_file: None}
-                )
-            ff.run()
+            for intermed_pattern in p.intermed_pattern.values():
+                img_file = intermed_pattern.replace("%%%", "%03d") + ".png"
+                vid_file = intermed_pattern.replace("%%%-", "") + "." + ssii_video_format
+                if hasattr(p, "enable_hr"):
+                    if p.enable_hr and ssii_video_hires == "1":
+                        img_file = img_file.replace("-p2-", "-p1-")
+                        vid_file = vid_file.replace("-p2-", "-p1-")
+                path_img_file = os.path.join(p.intermed_outpath, img_file) 
+                path_vid_file = os.path.join(p.intermed_outpath, vid_file) 
+                if ssii_video_format == "gif":
+                    ff = FFmpeg(
+                        inputs={path_img_file: f"-framerate {int(ssii_video_fps)}"},
+                        outputs={path_vid_file: '-filter_complex "split[v1][v2]; [v1]palettegen=stats_mode=full [palette]; [v2][palette]paletteuse=dither=sierra2_4a"'}
+                    )
+                else:
+                    ff = FFmpeg(
+                        inputs={path_img_file: f"-framerate {int(ssii_video_fps)}"},
+                        outputs={path_vid_file: None}
+                    )
+                ff.run()
             
             # Back to original numbering
-            for i, (name_org, name_seq) in enumerate(reversed(p.intermed_files)):
+            for (batch_no, name_org, name_seq) in reversed(p.intermed_files):
                 path_name_org = os.path.join(p.intermed_outpath, name_org)
                 path_name_seq = os.path.join(p.intermed_outpath, name_seq)
                 os.replace(path_name_seq, path_name_org)
