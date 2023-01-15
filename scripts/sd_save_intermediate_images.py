@@ -67,6 +67,19 @@ class Script(scripts.Script):
                         choices=["1", "2"],
                         value="2"
                     )
+                with gr.Box():
+                    with gr.Row():
+                        ssii_smooth = gr.Checkbox(
+                            label="Smoothing / Interpolate",
+                            value=False
+                        )
+                        
+                        ssii_seconds = gr.Number(
+                            label="Approx. how many seconds should the video run?",
+                            value=0
+                        )
+                    with gr.Row():
+                        gr.HTML("fps >= 30 recommended, caution: generates large gif-files")
             with gr.Row():
                 ssii_debug = gr.Checkbox(
                     label="Debug",
@@ -74,7 +87,7 @@ class Script(scripts.Script):
                 )
         with gr.Row():
             gr.HTML('<div style="padding-bottom: 0.7em;"></div><div></div>')
-        return [ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_debug]
+        return [ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug]
 
     def save_image_only_get_name(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
         #for description see modules.images.save_image, same code up saving of files
@@ -120,7 +133,7 @@ class Script(scripts.Script):
 
         return (fullfn)
 
-    def process(self, p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_debug):
+    def process(self, p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug):
         if ssii_is_active:
 
             # Debug logging
@@ -158,8 +171,8 @@ class Script(scripts.Script):
                 else:
                     hr = False 
 
-                logger.debug("ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_debug:")
-                logger.debug(f"{ssii_intermediate_type}, {ssii_every_n}, {ssii_stop_at_n}, {ssii_video}, {ssii_video_format}, {ssii_video_fps}, {ssii_video_hires}, {ssii_debug}")
+                logger.debug("ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug:")
+                logger.debug(f"{ssii_intermediate_type}, {ssii_every_n}, {ssii_stop_at_n}, {ssii_video}, {ssii_video_format}, {ssii_video_fps}, {ssii_video_hires}, {ssii_smooth}, {ssii_seconds}, {ssii_debug}")
                 logger.debug(f"Step: {current_step}")
                 logger.debug(f"hr: {hr}")
 
@@ -292,7 +305,7 @@ class Script(scripts.Script):
 
             setattr(KDiffusionSampler, "callback_state", callback_state)
 
-    def postprocess(self, p, processed, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_debug):
+    def postprocess(self, p, processed, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug):
         setattr(KDiffusionSampler, "callback_state", orig_callback_state)
 
         # Make a video file
@@ -313,6 +326,7 @@ class Script(scripts.Script):
                 logger.debug(f"replace {path_name_org} / {path_name_seq}")
                 i = i + 1
                 prev_batch = batch_no
+                frames_per_image = i
 
             for intermed_pattern in p.intermed_pattern.values():
                 img_file = intermed_pattern.replace("%%%", "%03d") + ".png"
@@ -323,16 +337,33 @@ class Script(scripts.Script):
                         vid_file = vid_file.replace("-p2-", "-p1-")
                 path_img_file = os.path.join(p.intermed_outpath, img_file) 
                 path_vid_file = os.path.join(p.intermed_outpath, vid_file) 
-                if ssii_video_format == "gif":
-                    ff = FFmpeg(
-                        inputs={path_img_file: f"-framerate {int(ssii_video_fps)}"},
-                        outputs={path_vid_file: '-filter_complex "split[v1][v2]; [v1]palettegen=stats_mode=full [palette]; [v2][palette]paletteuse=dither=sierra2_4a"'}
-                    )
+                if ssii_smooth:
+                    pts = (round(ssii_seconds / frames_per_image, 5))
+                    if pts < 1:
+                        pts = "1"
+                    else:
+                        pts = str(pts)
+                    if ssii_video_format == "gif":
+                        ff = FFmpeg(
+                            inputs={path_img_file: "-benchmark -framerate 1"},
+                            outputs={path_vid_file: f'-filter_complex "split[v1][v2]; [v1]palettegen=stats_mode=full [palette]; [v2][palette]paletteuse=dither=sierra2_4a [v3]; [v3]setpts={pts}*PTS [v4]; [v4]minterpolate=fps={int(ssii_video_fps)}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"'}
+                        )
+                    else:
+                        ff = FFmpeg(
+                            inputs={path_img_file: "-benchmark -framerate 1"},
+                            outputs={path_vid_file: f'-filter_complex "setpts={pts}*PTS [v4]; [v4]minterpolate=fps={int(ssii_video_fps)}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"'}
+                        )
                 else:
-                    ff = FFmpeg(
-                        inputs={path_img_file: f"-framerate {int(ssii_video_fps)}"},
-                        outputs={path_vid_file: None}
-                    )
+                    if ssii_video_format == "gif":
+                        ff = FFmpeg(
+                            inputs={path_img_file: f"-benchmark -framerate {int(ssii_video_fps)}"},
+                            outputs={path_vid_file: '-filter_complex "split[v1][v2]; [v1]palettegen=stats_mode=full [palette]; [v2][palette]paletteuse=dither=sierra2_4a"'}
+                        )
+                    else:
+                        ff = FFmpeg(
+                            inputs={path_img_file: f"-benchmark -framerate {int(ssii_video_fps)}"},
+                            outputs={path_vid_file: None}
+                        )
                 ff.run()
             
             # Back to original numbering
