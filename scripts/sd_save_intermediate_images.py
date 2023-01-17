@@ -32,8 +32,8 @@ class Script(scripts.Script):
                 )
             with gr.Row():
                 ssii_intermediate_type = gr.Radio(
-                    label="Should the intermediate images be denoised or noisy?",
-                    choices=["Denoised", "Noisy"],
+                    label="Type of images to be saved",
+                    choices=["Denoised", "Noisy", "According to Live preview subject setting"],
                     value="Denoised"
                 )
             with gr.Row():
@@ -205,10 +205,12 @@ class Script(scripts.Script):
 
                 if current_step % ssii_every_n == 0:
                     for index in range(0, p.batch_size):
-                        if ssii_intermediate_type == "Denoised":
-                            image = sample_to_image(d["denoised"], index=index)
-                        else:
+                        if ssii_intermediate_type == "According to Live preview subject setting" and index == 0:
+                            image = state.current_image
+                        elif ssii_intermediate_type == "Noisy":
                             image = sample_to_image(d["x"], index=index)
+                        else:
+                            image = sample_to_image(d["denoised"], index=index)
 
                         logger.debug(f"ssii_intermediate_type, ssii_every_n, ssii_stop_at_n: {ssii_intermediate_type}, {ssii_every_n}, {ssii_stop_at_n}")
                         logger.debug(f"Step: {current_step}")
@@ -339,6 +341,7 @@ class Script(scripts.Script):
                 path_vid_file = os.path.join(p.intermed_outpath, vid_file) 
                 if ssii_smooth:
                     pts = (round(ssii_seconds / frames_per_image, 5))
+                    logger.debug(f"pts: {pts}")
                     if pts < 1:
                         pts = "1"
                     else:
