@@ -24,4 +24,4 @@ Please be aware that _Image creation progress preview mode_ in the webui's setti
 You can also make a video out of the intermediate images:
 <p><img src="images/13655-sample.gif"/>
 <img src="images/13642-sample.gif"/>
-<a href="images/13672-sample.mp4" title="Interpolated"><img src="images/13672-sample.jpg" alt="Interpolated" /></a>
+<video src='https://user-images.githubusercontent.com/99896447/213034519-7b6ed42f-39d5-4994-a8b7-c85ec92bda84.mp4'></video>
