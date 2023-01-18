@@ -22,6 +22,8 @@ Once the image generation begins, the intermediate images will start saving in a
 Please be aware that _Image creation progress preview mode_ in the webui's settings affects how the intermediate images are created.
 
 You can also make a video out of the intermediate images:
-<p><img src="images/13655-sample.gif"/>
+<p>GIF:<br>
+<img src="images/13655-sample.gif"/>
 <img src="images/13642-sample.gif"/>
+<p>MP4, with interpolation:<br>
 <video src='https://user-images.githubusercontent.com/99896447/213034519-7b6ed42f-39d5-4994-a8b7-c85ec92bda84.mp4' autoplay loop></video>
