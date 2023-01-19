@@ -2,7 +2,7 @@
 
 A custom extension for [AUTOMATIC1111/stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) that implements saving intermediate images.
 
-<img src="images/extension.png"/>
+<img src="images/extension.jpg"/>
 
 ## Installation
 
@@ -19,7 +19,7 @@ Does not work with DDIM and PLMS
 
 Once the image generation begins, the intermediate images will start saving in a directory under a new \outputs\(*txt2img or img2img*)-images\intermediates directory.
 
-Please be aware that _Image creation progress preview mode_ in the webui's settings affects how the intermediate images are created.
+Please be aware that **Image creation progress preview mode** in the webui's settings affects how and especially at what size the intermediate images are created.
 
 You can also make a video out of the intermediate images:
 <p>GIF:<br>
