@@ -27,3 +27,14 @@ You can also make a video out of the intermediate images:
 <img src="images/13642-sample.gif"/>
 <p>MP4, with interpolation:<br>
 <video src='https://user-images.githubusercontent.com/99896447/213034519-7b6ed42f-39d5-4994-a8b7-c85ec92bda84.mp4' autoplay loop></video>
+
+## Requirements
+For video generation ffmpeg needs to be in your path.
+
+General information about ffmpeg downloads:
+https://ffmpeg.org/download.html
+
+For Windows it probably is easiest to download one of the release packages:
+https://www.gyan.dev/ffmpeg/builds/#release-builds
+
+unpack it whereever you want and then put the path to the bin folder in your path environment variable.
