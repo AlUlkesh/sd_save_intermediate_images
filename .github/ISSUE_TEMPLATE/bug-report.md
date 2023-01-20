@@ -1,5 +1,5 @@
 ---
-name: issue_bug
+name: Bug report
 about: Reminder to use debug option
 title: ''
 labels: ''
