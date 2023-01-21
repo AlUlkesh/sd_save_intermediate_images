@@ -2,10 +2,12 @@ import logging
 import os
 import platform
 import re
+import shutil
 import sys
 
 from modules import paths
 from modules import scripts
+from modules import script_callbacks
 from modules.processing import Processed, process_images, fix_seed, create_infotext
 from modules.sd_samplers import KDiffusionSampler, sample_to_image
 from modules.images import save_image, FilenameGenerator, get_next_sequence_number
@@ -17,8 +19,8 @@ import gradio as gr; gr.__version__
 orig_callback_state = KDiffusionSampler.callback_state
 
 
-def make_video(p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug):
-    if ssii_is_active and ssii_video and not state.skipped and not state.interrupted:
+def make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug):
+    if ssii_is_active and ssii_video and ((not state.skipped and not state.interrupted) or p.intermed_stopped):
         logger = logging.getLogger(__name__)
         # ffmpeg requires sequential numbers in filenames (that is exactly +1)
         p.intermed_files.sort(key=lambda x: x[0])
@@ -32,7 +34,7 @@ def make_video(p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_sta
             path_name_org = os.path.join(p.intermed_outpath, name_org)
             path_name_seq = os.path.join(p.intermed_outpath, name_seq)
             os.replace(path_name_org, path_name_seq)
-            logger.debug(f"replace {path_name_org} / {path_name_seq}")
+            logger.debug(f"replace {filename_clean(path_name_org)} / {filename_clean(path_name_seq)}")
             i = i + 1
             prev_batch = batch_no
             frames_per_image = i
@@ -76,13 +78,24 @@ def make_video(p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_sta
                     )
             ff.run()
         
-        # Back to original numbering
+        # Back to original numbering (reversed to not run into naming conflicts)
         for (batch_no, name_org, name_seq) in reversed(p.intermed_files):
             path_name_org = os.path.join(p.intermed_outpath, name_org)
             path_name_seq = os.path.join(p.intermed_outpath, name_seq)
             os.replace(path_name_seq, path_name_org)
-            logger.debug(f"replace {path_name_seq} / {path_name_org}")
+            logger.debug(f"replace {filename_clean(path_name_seq)} / {filename_clean(path_name_org)}")
     return
+
+def filename_clean(filename):
+    filename_cleaned = re.sub(r"[^\d/\\-]", "%", filename)
+    return filename_cleaned
+
+def hr_check(p):
+    if hasattr(p, "enable_hr"):
+        hr = p.enable_hr
+    else:
+        hr = False 
+    return hr
 
 class Script(scripts.Script):
     def title(self):
@@ -96,6 +109,10 @@ class Script(scripts.Script):
             with gr.Row():
                 ssii_is_active = gr.Checkbox(
                     label="Save intermediate images",
+                    value=False
+                )
+                ssii_final_save = gr.Checkbox(
+                    label="Also save final image with intermediates",
                     value=False
                 )
             with gr.Row():
@@ -160,7 +177,7 @@ class Script(scripts.Script):
                 )
         with gr.Row():
             gr.HTML('<div style="padding-bottom: 0.7em;"></div><div></div>')
-        return [ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug]
+        return [ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug]
 
     def save_image_only_get_name(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
         # for description see modules.images.save_image, same code up saving of files
@@ -206,7 +223,7 @@ class Script(scripts.Script):
 
         return (fullfn)
 
-    def process(self, p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug):
+    def process(self, p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug):
         if ssii_is_active:
 
             # Debug logging
@@ -233,16 +250,19 @@ class Script(scripts.Script):
                 with open(cmd_opts.ui_settings_file, "r") as f:
                     logger.debug(f.read())
 
+            p.intermed_stopped = False
+            p.intermed_is_active = ssii_is_active
+            p.intermed_final_save = ssii_final_save
+            p.intermed_video = ssii_video
+            p.intermed_video_hires = ssii_video_hires
+            
             def callback_state(self, d):
                 """
                 callback_state runs after each processing step
                 """
                 current_step = d["i"]
 
-                if hasattr(p, "enable_hr"):
-                    hr = p.enable_hr
-                else:
-                    hr = False 
+                hr = hr_check(p)
 
                 logger.debug("ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug:")
                 logger.debug(f"{ssii_intermediate_type}, {ssii_every_n}, {ssii_start_at_n}, {ssii_stop_at_n}, {ssii_video}, {ssii_video_format}, {ssii_video_fps}, {ssii_video_hires}, {ssii_smooth}, {ssii_seconds}, {ssii_debug}")
@@ -257,8 +277,11 @@ class Script(scripts.Script):
                             # Reset per-batch_count-attributes
                             delattr(p, "intermed_final_pass")
                             delattr(p, "intermed_max_step")
+                            print("before #")
                             # Make video for previous batch_count
-                            make_video(p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug)
+                            print("after #")
+                            make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug)
+                            print("after make")
                     else:
                         p.intermed_batch_iter = p.iteration
 
@@ -391,27 +414,55 @@ class Script(scripts.Script):
                                         save_image(image, p.outpath_samples, "", intermed_seed, p.prompt, opts.samples_format, info=infotext, p=p)
                                         if index == p.batch_size - 1:
                                             # early stop for final seed and final pass reached, interrupt further processing
+                                            p.intermed_stopped = True
                                             state.interrupt()
                                     else:
                                         # save intermediate image
                                         save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename, save_to_dirs=False)
-                                        filename_clean = re.sub(r"[^\d-]", "%", filename)
-                                        logger.debug(f"filename: {filename_clean}")
+                                        logger.debug(f"filename: {filename_clean(filename)}")
                                         if ssii_video and ((hr and p.intermed_first_pass and ssii_video_hires == "1") or (hr and p.intermed_final_pass and ssii_video_hires == "2") or not hr):
                                             p.intermed_files.append((index, filename + ".png", None))
                                 else:
                                     # save intermediate image
                                     save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename, save_to_dirs=False)
-                                    filename_clean = re.sub(r"[^\d-]", "%", filename)
-                                    logger.debug(f"filename: {filename_clean}")
+                                    logger.debug(f"filename: {filename_clean(filename)}")
                                     if ssii_video and ((hr and p.intermed_first_pass and ssii_video_hires == "1") or (hr and p.intermed_final_pass and ssii_video_hires == "2") or not hr):
                                         p.intermed_files.append((index, filename + ".png", None))
                 return orig_callback_state(self, d)
 
             setattr(KDiffusionSampler, "callback_state", callback_state)
 
-    def postprocess(self, p, processed, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug):
+    def postprocess(self, p, processed, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug):
         setattr(KDiffusionSampler, "callback_state", orig_callback_state)
 
         # Make video for last batch_count
-        make_video(p, ssii_is_active, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug)
+        make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_video_fps, ssii_video_hires, ssii_smooth, ssii_seconds, ssii_debug)
+
+def handle_image_saved(params : script_callbacks.ImageSaveParams):
+    if hasattr(params.p, "intermed_is_active"):
+        # Copy final image to intermediates folder
+        if params.p.intermed_is_active and params.p.intermed_final_save:
+            directories = os.path.normpath(params.filename).split(os.sep)
+            if "intermediates" in directories:
+                params.p.intermed_lastfile = params.filename
+            else:
+                # Convert final file name to intermediates filename
+                file_last = os.path.basename(params.p.intermed_lastfile)
+                match1 = re.search(r'^(.*?)-(\d+)(.*)$', file_last)
+                new_number = str(int(match1.group(2)) + 1).zfill(3)
+                file_new = match1.group(1) + '-' + new_number + match1.group(3)
+                file_new_path = os.path.join(os.path.dirname(params.p.intermed_lastfile), file_new)
+                logger = logging.getLogger(__name__)
+                logger.debug(f"params.p.intermed_lastfile: {filename_clean(params.p.intermed_lastfile)}")
+                logger.debug(f"params.filename: {filename_clean(params.filename)}")
+                logger.debug(f"file_new_path: {filename_clean(file_new_path)}")
+                
+                shutil.copy(params.filename, file_new_path)
+
+                # Add info for make video
+                hr = hr_check(params.p)
+                if params.p.intermed_video_hires and ((hr and params.p.intermed_video_hires == "2") or not hr):
+                    intermed_files_last = params.p.intermed_files[-1]
+                    params.p.intermed_files.append((intermed_files_last[0], file_new, None))
+                
+script_callbacks.on_image_saved(handle_image_saved)
