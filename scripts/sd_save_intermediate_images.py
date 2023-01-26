@@ -105,6 +105,10 @@ def make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_
                     vid_file = vid_file.replace("-p2-", "-p1-")
             path_img_file = os.path.join(p.intermed_outpath, img_file) 
             path_vid_file = os.path.join(p.intermed_outpath, vid_file) 
+            if ssii_video_format == "mp4":
+                mp4_parms = " -c:v libx264 -profile:v high -pix_fmt yuv420p"
+            else:
+                mp4_parms = ""
             if ssii_smooth:
                 pts = (round(ssii_seconds / frames_per_image, 5))
                 logger.debug(f"pts: {pts}")
@@ -120,7 +124,7 @@ def make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_
                 else:
                     ff = FFmpeg(
                         inputs={path_img_file: "-benchmark -framerate 1 -start_number 1000"},
-                        outputs={path_vid_file: f'-filter_complex "setpts={pts}*PTS [v4]; [v4]minterpolate=fps={int(ssii_video_fps)}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"'}
+                        outputs={path_vid_file: f'-filter_complex "setpts={pts}*PTS [v4]; [v4]minterpolate=fps={int(ssii_video_fps)}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1" -bufsize 2000k {mp4_parms}'}
                     )
             else:
                 if ssii_video_format == "gif":
@@ -131,7 +135,7 @@ def make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_
                 else:
                     ff = FFmpeg(
                         inputs={path_img_file: f"-benchmark -framerate {int(ssii_video_fps)} -start_number 1000"},
-                        outputs={path_vid_file: None}
+                        outputs={path_vid_file: f"-bufsize 2000k{mp4_parms}"}
                     )
             ff.run()
         
