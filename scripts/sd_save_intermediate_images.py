@@ -9,7 +9,11 @@ from modules import paths
 from modules import scripts
 from modules import script_callbacks
 from modules.processing import Processed, process_images, fix_seed, create_infotext
-from modules.sd_samplers import KDiffusionSampler, sample_to_image
+try:
+    from modules.sd_samplers_kdiffusion import KDiffusionSampler
+    from modules.sd_samplers_common import sample_to_image
+except ImportError:
+    from modules.sd_samplers import KDiffusionSampler, sample_to_image
 from modules.images import save_image, FilenameGenerator, get_next_sequence_number
 from modules.shared import opts, state, cmd_opts
 
