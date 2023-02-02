@@ -1,3 +1,6 @@
+import datetime
+import json
+import locale
 import logging
 import os
 import platform
@@ -20,10 +23,64 @@ from modules.shared import opts, state, cmd_opts
 from ffmpy import FFmpeg
 import gradio as gr; gr.__version__
 
-orig_callback_state = KDiffusionSampler.callback_state
-
 # New args, regex for npp, find: (ssii_video_hires)(?=,)
 # replace: \1, ssii_add_last_frames, ssii_add_first_frames
+
+orig_callback_state = KDiffusionSampler.callback_state
+ui_config_backup = os.path.join(scripts.basedir(), "ui-config_backup.json")
+ui_items = {
+    "ssii_is_active": "Save intermediate images",
+    "ssii_final_save": "Also save final image with intermediates",
+    "ssii_save_settings": "Save current settings as default",
+    "ssii_intermediate_type": "Type of images to be saved",
+    "ssii_every_n": "Save every N images",
+    "ssii_start_at_n": "Start at N images (must be 0 = start at the beginning or a multiple of 'Save every N images')",
+    "ssii_stop_at_n": "Stop at N images (must be 0 = don't stop early or a multiple of 'Save every N images')",
+    "ssii_video": "Make a video file",
+    "ssii_video_format": "Format",
+    "ssii_mp4_parms": "mp4 parameters",
+    "ssii_video_fps": "fps",
+    "ssii_add_first_frames": "Display last image for additional frames at the beginning",
+    "ssii_add_last_frames": "Display last image for additional frames at the end",
+    "ssii_smooth": "Smoothing / Interpolate",
+    "ssii_seconds": "Approx. how many seconds should the video run?",
+    "ssii_debug": "Debug"
+}
+
+def ui_setting_set(ui_settings, key, value):
+    this_module = os.path.basename(__file__)
+    ui_settings[f"customscript/{this_module}/txt2img/{key}/value"] = value
+    ui_settings[f"customscript/{this_module}/img2img/{key}/value"] = value
+    return ui_settings
+
+def ssii_save_settings_do(ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_debug):
+    ui_config_file = cmd_opts.ui_config_file
+    ui_settings = {}
+
+    try:
+        if os.path.exists(ui_config_file):
+            with open(ui_config_file, "r", encoding="utf8") as file:
+                ui_settings = json.load(file)
+    except Exception:
+        message = f"Error loading settings: {sys.stderr}"
+        return message
+
+    # Save one backup
+    with open(ui_config_backup, "w", encoding="utf8") as file:
+        json.dump(ui_settings, file, indent=4)
+
+    for key, value in ui_items.items():
+        if key != "ssii_is_active" and key != "ssii_save_settings":
+            ui_settings = ui_setting_set(ui_settings, value, eval(key))
+
+    with open(ui_config_file, "w", encoding="utf8") as file:
+        json.dump(ui_settings, file, indent=4)
+
+    locale.setlocale(locale.LC_ALL, '')
+    current_date_and_time = datetime.datetime.now()
+    message = f"Last saved as default: {current_date_and_time.strftime('%c')}"
+
+    return f"<p align = right>{message}</p>"
 
 def ssii_set_num(name, i):
     if i < 1000:
@@ -184,87 +241,100 @@ class Script(scripts.Script):
     def ui(self, is_img2img):
         with gr.Accordion("Save intermediate images", open=False):
             with gr.Row():
+                ssii_message = gr.HTML()
+            with gr.Row():
                 ssii_is_active = gr.Checkbox(
-                    label="Save intermediate images",
+                    label=ui_items["ssii_is_active"],
                     value=False
                 )
                 ssii_final_save = gr.Checkbox(
-                    label="Also save final image with intermediates",
+                    label=ui_items["ssii_final_save"],
                     value=False
                 )
+                ssii_save_settings = gr.Button(
+                    value=ui_items["ssii_save_settings"],
+                    elem_id="ssii_save_settings"
+                    )
             with gr.Row():
                 ssii_intermediate_type = gr.Radio(
-                    label="Type of images to be saved",
+                    label=ui_items["ssii_intermediate_type"],
                     choices=["Denoised", "Noisy", "According to Live preview subject setting"],
                     value="Denoised"
                 )
             with gr.Row():
                 ssii_every_n = gr.Number(
-                    label="Save every N images",
+                    label=ui_items["ssii_every_n"],
                     value="5"
                 )
             with gr.Row():
                 ssii_start_at_n = gr.Number(
-                    label="Start at N images (must be 0 = start at the beginning or a multiple of 'Save every N images')",
+                    label=ui_items["ssii_start_at_n"],
                     value="0"
                 )
             with gr.Row():
                 ssii_stop_at_n = gr.Number(
-                    label="Stop at N images (must be 0 = don't stop early or a multiple of 'Save every N images')",
+                    label=ui_items["ssii_stop_at_n"],
                     value="0"
                 )
             with gr.Box():
                 with gr.Row():
                     ssii_video = gr.Checkbox(
-                        label="Make a video file",
+                        label=ui_items["ssii_video"],
                         value=False
                     )
                 with gr.Row():
                     with gr.Box():
                         ssii_video_format = gr.Radio(
-                            label="Format",
+                            label=ui_items["ssii_video_format"],
                             choices=["gif", "webm", "mp4"],
                             value="mp4"
                         )
                         ssii_mp4_parms = gr.Radio(
-                            label="mp4 parameters",
+                            label=ui_items["ssii_mp4_parms"],
                             choices=["h264", "h265/hevc", "av1"],
                             value="h264"
                         )
                     ssii_video_fps = gr.Number(
-                        label="fps",
+                        label=ui_items["ssii_video_fps"],
                         value=2
                     )
                 with gr.Box():
                     with gr.Row():
                         ssii_add_first_frames = gr.Number(
-                            label="Display last image for additional frames at the beginning",
+                            label=ui_items["ssii_add_first_frames"],
                             value=0
                         )
                         ssii_add_last_frames = gr.Number(
-                            label="Display last image for additional frames at the end",
+                            label=ui_items["ssii_add_last_frames"],
                             value=0
                         )
                 with gr.Box():
                     with gr.Row():
                         ssii_smooth = gr.Checkbox(
-                            label="Smoothing / Interpolate",
+                            label=ui_items["ssii_smooth"],
                             value=False
                         )
                         
                         ssii_seconds = gr.Number(
-                            label="Approx. how many seconds should the video run?",
+                            label=ui_items["ssii_seconds"],
                             value=0
                         )
                     with gr.Row():
                         gr.HTML("fps >= 30 recommended, caution: generates large gif-files")
             with gr.Row():
                 ssii_debug = gr.Checkbox(
-                    label="Debug",
+                    label=ui_items["ssii_debug"],
                     value=False
                 )
         with gr.Row():
             gr.HTML('<div style="padding-bottom: 0.7em;"></div><div></div>')
+
+        ssii_save_settings.click(
+            fn=ssii_save_settings_do,
+            inputs=[ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_debug],
+            outputs=[ssii_message],
+        )
+
         return [ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_video, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_debug]
 
     def save_image_only_get_name(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
