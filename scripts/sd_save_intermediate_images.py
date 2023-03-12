@@ -568,7 +568,8 @@ class Script(scripts.Script):
                             # Reset per-batch_count-attributes
                             delattr(p, "intermed_final_pass")
                             delattr(p, "intermed_max_step")
-                            delattr(p, "intermed_hires_start")
+                            if hr:
+                                delattr(p, "intermed_hires_start")
                             # Make video for previous batch_count
                             make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug)
                     else:
