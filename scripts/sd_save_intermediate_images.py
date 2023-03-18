@@ -185,6 +185,14 @@ def make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_
 
     return
 
+def link_file(path_name_org, path_name_seq, hard_links):
+    if hard_links:
+        os.link(path_name_org, path_name_seq)
+    else:
+        shutil.copyfile(path_name_org, path_name_seq)
+    
+    return
+
 def make_video_or_bat(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
     logger = logging.getLogger(__name__)
     logger.debug(f"video mode: {video_bat_mode}")
@@ -228,11 +236,19 @@ def make_video_or_bat(p, ssii_is_active, ssii_final_save, ssii_intermediate_type
 
     p.intermed_files.sort(key=lambda x: (x[0], x[2].startswith("link:")))
 
+    hard_links = True
     for (batch_no, name_org, name_seq) in p.intermed_files:
         path_name_org = os.path.join(p.intermed_outpath, name_org)
         if name_seq[:5] == "link:":
             path_name_seq = os.path.join(p.intermed_outpath, name_seq[5:])
-            os.link(path_name_org, path_name_seq)
+            try:
+                link_file(path_name_org, path_name_seq, hard_links)
+            except OSError as e:
+                if e.errno == 38 and hard_links:
+                    hard_links = False
+                    link_file(path_name_org, path_name_seq, hard_links)
+                else:
+                    raise
         else:
             path_name_seq = os.path.join(p.intermed_outpath, name_seq)
             os.replace(path_name_org, path_name_seq)
