@@ -459,8 +459,6 @@ class Script(scripts.Script):
                     label=ui_items["ssii_debug"],
                     value=False
                 )
-        with gr.Row():
-            gr.HTML('<div style="padding-bottom: 0.7em;"></div><div></div>')
 
         ssii_save_settings.click(
             fn=ssii_save_settings_do,
