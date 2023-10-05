@@ -307,7 +307,11 @@ def make_video_or_bat(p, ssii_is_active, ssii_final_save, ssii_intermediate_type
                 )
         if video_bat_mode == "video":
             ff_fmpeg = ff[0]
-            ff_fmpeg.run()
+            try:
+                ff_fmpeg.run()
+            except Exception as e:
+                print("Error running ffmpeg. Please make sure it is installed and in the path.")
+                print(e)
         else:
             bat_filename = os.path.splitext(path_vid_file)[0] + ".bat"
             with open(bat_filename, "w") as file:
@@ -707,7 +711,7 @@ class Script(scripts.Script):
                                 if abs_step == p.intermed_ssii_stop_at_n:
                                     # early stop for this seed reached, prevent normal save, save as final image
                                     p.do_not_save_samples = True
-                                    save_image(image, p.outpath_samples, "", intermed_seed, p.prompt, opts.samples_format, info=infotext, p=p)
+                                    save_image(image, p.outpath_samples, "", intermed_seed, p.prompt, opts.samples_format, extension='png', info=infotext, p=p)
                                     if index == p.batch_size - 1:
                                         # early stop for final seed and final pass reached, interrupt further processing
                                         intermed_save = False
@@ -715,7 +719,7 @@ class Script(scripts.Script):
                                         state.interrupt()
                                 if intermed_save:
                                     # save intermediate image
-                                    save_image(image, p.intermed_outpath, "", info=infotext, p=p, forced_filename=filename, save_to_dirs=False)
+                                    save_image(image, p.intermed_outpath, "", extension='png', info=infotext, p=p, forced_filename=filename, save_to_dirs=False)
                                     logger.debug(f"filename: {filename_clean(filename)}")
                                     p.intermed_files.append((index, filename + ".png", None))
                                     p.intermed_last[index] = (filename + ".png", p.intermed_outpath, False)
