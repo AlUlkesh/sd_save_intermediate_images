@@ -1,7 +1,7 @@
 import datetime
 import json
 import locale
-import logging
+import picologging as logging
 import os
 import platform
 import re
