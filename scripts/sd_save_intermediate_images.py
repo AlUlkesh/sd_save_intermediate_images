@@ -53,6 +53,8 @@ ui_items = {
     "ssii_debug": "Debug"
 }
 mode_choices = ["Make a video file", "Save intermediates with image number as suffix", "Standard operation"]
+debug_setup = False
+logger = logging.getLogger(__name__)
 
 def ui_setting_set(ui_settings, key, value):
     this_module = os.path.basename(__file__)
@@ -90,6 +92,7 @@ def ssii_save_settings_do(ssii_is_active, ssii_final_save, ssii_intermediate_typ
     return f"<p align = right>{message}</p>"
 
 def get_add_num():
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     if video_bat_mode == "video":
         add_num = 1000
     elif video_bat_mode == "bat_lores":
@@ -100,6 +103,7 @@ def get_add_num():
     return add_num
 
 def ssii_set_num(name, i):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     add_num = get_add_num()
     if i < add_num:
         i = i + add_num
@@ -109,6 +113,7 @@ def ssii_set_num(name, i):
     return name_set_num
 
 def ssii_add_last_frames_add(add_frames, add_files, i, batch_no, name_org, name_seq):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     for frame in range(int(add_frames)):
         name_added = ssii_set_num(name_seq, i)
         add_files.append((batch_no, name_org, f"link:{name_added}"))
@@ -116,6 +121,8 @@ def ssii_add_last_frames_add(add_frames, add_files, i, batch_no, name_org, name_
     return add_files, i
 
 def ssii_add_last_frames_logic(p, ssii_add_first_frames, ssii_add_last_frames, ssii_debug):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
+    logger.debug(f"ssii_add_first_frames, ssii_add_last_frames: {ssii_add_first_frames}, {ssii_add_last_frames}")
     if ssii_add_first_frames > 0 or ssii_add_last_frames > 0:
         add_files = []
         prev_batch = None
@@ -129,7 +136,12 @@ def ssii_add_last_frames_logic(p, ssii_add_first_frames, ssii_add_last_frames, s
                 if ssii_add_first_frames > 0:
                     name_last = next(c for a,b,c in p.intermed_files[::-1] if a == batch_no)
                     match = re.search(r"^\d+-(\d{4})", name_last)
-                    num_last = int(match.group(1)) + int(ssii_add_first_frames)
+                    try:
+                        matched = int(match.group(1))
+                    except:
+                        logger.debug(f"name_last: {name_last}")
+                        raise
+                    num_last = matched + int(ssii_add_first_frames)
                     name_last = ssii_set_num(name_last, num_last)
                     add_files, i = ssii_add_last_frames_add(ssii_add_first_frames, add_files, i, batch_no, name_last, name_seq)
 
@@ -146,6 +158,7 @@ def ssii_add_last_frames_logic(p, ssii_add_first_frames, ssii_add_last_frames, s
     return
 
 def ffmpeg(inputs=None, outputs=None):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     ff_ffmpeg = FFmpeg(inputs=inputs, outputs=outputs)
 
     input_key = next(iter(inputs))
@@ -163,6 +176,9 @@ def ffmpeg(inputs=None, outputs=None):
 
 def make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
     global video_bat_mode
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
+    logger.debug("ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only:")
+    logger.debug(f"{ssii_is_active}, {ssii_final_save}, {ssii_intermediate_type}, {ssii_every_n}, {ssii_start_at_n}, {ssii_stop_at_n}, {ssii_mode}, {ssii_video_format}, {ssii_mp4_parms}, {ssii_video_fps}, {ssii_add_first_frames}, {ssii_add_last_frames}, {ssii_smooth}, {ssii_seconds}, {ssii_lores}, {ssii_hires}, {ssii_ffmpeg_bat}, {ssii_bat_only}")
     if ssii_is_active and ssii_mode == mode_choices[0] and ((not state.skipped and not state.interrupted) or p.intermed_stopped):
         do_video = True
         do_bat = False
@@ -186,6 +202,7 @@ def make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_
     return
 
 def link_file(path_name_org, path_name_seq, hard_links):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     if hard_links:
         os.link(path_name_org, path_name_seq)
     else:
@@ -194,7 +211,7 @@ def link_file(path_name_org, path_name_seq, hard_links):
     return
 
 def make_video_or_bat(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
-    logger = logging.getLogger(__name__)
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     logger.debug(f"video mode: {video_bat_mode}")
     if video_bat_mode == "video":
         lores = ssii_lores
@@ -331,10 +348,12 @@ def make_video_or_bat(p, ssii_is_active, ssii_final_save, ssii_intermediate_type
     return
 
 def filename_clean(filename):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     filename_cleaned = re.sub(r"[^\d/\\-]", "%", filename)
     return filename_cleaned
 
 def hr_check(p):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     if hasattr(p, "enable_hr"):
         hr = p.enable_hr
     else:
@@ -342,6 +361,7 @@ def hr_check(p):
     return hr
     
 def hr_active_check(p):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     if hasattr(p, "intermed_final_pass"):
         hr_active = p.intermed_final_pass
     else:
@@ -474,7 +494,8 @@ class Script(scripts.Script):
 
     def save_image_only_get_name(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
         # for description see modules.images.save_image, same code up saving of files
-        
+        logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
+
         namegen = FilenameGenerator(p, seed, prompt, image)
 
         if save_to_dirs is None:
@@ -517,6 +538,7 @@ class Script(scripts.Script):
         return (fullfn)
 
     def process(self, p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
+        global logger, debug_setup
         if ssii_is_active:
 
             # Debug logging
@@ -524,12 +546,14 @@ class Script(scripts.Script):
                 mode = logging.DEBUG
             else:
                 mode = logging.WARNING
-            logger = logging.getLogger(__name__)
             logger.setLevel(mode)
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(mode)
-            logger.addHandler(console_handler)
+            if not debug_setup:
+                console_handler = logging.StreamHandler()
+                console_handler.setLevel(mode)
+                logger.addHandler(console_handler)
+                debug_setup = True
             if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
                 logger.debug(f"{sys.executable} {sys.version}")
                 logger.debug(f"{platform.system()} {platform.version()}")
                 try:
@@ -540,6 +564,7 @@ class Script(scripts.Script):
                 logger.debug(f"{commit_hash}")
                 logger.debug(f"Gradio {gr.__version__}")
                 logger.debug(f"{paths.script_path}")
+                logger.debug(f"opts.save_images_add_number: {opts.save_images_add_number}")
                 with open(cmd_opts.ui_config_file, "r") as f:
                     logger.debug(f.read())
                 with open(cmd_opts.ui_settings_file, "r") as f:
@@ -551,6 +576,7 @@ class Script(scripts.Script):
             p.intermed_video = ssii_mode
             
             def callback_state(self, d):
+                logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
                 """
                 callback_state runs after each processing step
                 """
@@ -729,12 +755,14 @@ class Script(scripts.Script):
             setattr(KDiffusionSampler, "callback_state", callback_state)
 
     def postprocess(self, p, processed, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
+        logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
         setattr(KDiffusionSampler, "callback_state", orig_callback_state)
 
         # Make video for last batch_count
         make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug)
 
 def handle_image_saved(params : script_callbacks.ImageSaveParams):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
     if hasattr(params.p, "intermed_is_active"):
         # Copy final image to intermediates folder
         if params.p.intermed_is_active and params.p.intermed_final_save:
@@ -755,7 +783,6 @@ def handle_image_saved(params : script_callbacks.ImageSaveParams):
                     file_new = match1.group(1) + '-' + new_number + match1.group(3)
                     #file_new_path = os.path.join(os.path.dirname(params.p.intermed_lastfile), file_new)
                     file_new_path = os.path.join(last_path, file_new)
-                    logger = logging.getLogger(__name__)
                     logger.debug(f"last_filename: {filename_clean(last_filename)}")
                     logger.debug(f"file_new_path: {filename_clean(file_new_path)}")
                     
