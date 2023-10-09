@@ -13,7 +13,7 @@ You can also install it manually by running the following command from within th
 	git clone https://github.com/AlUlkesh/sd_save_intermediate_images/ extensions/sd_save_intermediate_images
 
 ## Limitations
-Does not work with DDIM and PLMS
+Does not work with DDIM, PLMS or UNIPC
 
 ## Output
 
