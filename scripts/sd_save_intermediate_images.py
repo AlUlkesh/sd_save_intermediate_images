@@ -7,7 +7,6 @@ import platform
 import re
 import shutil
 import sys
-import base64
 import webbrowser
 from modules import paths
 from modules import scripts
