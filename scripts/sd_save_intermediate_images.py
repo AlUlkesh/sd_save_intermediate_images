@@ -796,46 +796,38 @@ class Script(scripts.Script):
         # Make video for last batch_count
         make_video(p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug)
 
-def handle_image_saved(params):
-    logger.debug(f"Function: {sys._getframe(0).f_code.co_name}")
-    
-    if hasattr(params.p, "intermed_is_active") and params.p.intermed_is_active and params.p.intermed_final_save:
-        filename = params.filename
-        directories = os.path.normpath(filename).split(os.sep)
-        
-        if "intermediates" not in directories:
-            # Find the last unprocessed file
-            last_found = False
-            for index, (last_filename, last_path, last_done) in enumerate(params.p.intermed_last.values()):
-                if not last_done:
-                    last_found = True
-                    params.p.intermed_last[index] = (last_filename, last_path, True)
-                    break
-            
-            if last_found:
-                # Construct new filename for intermediate copy
-                match1 = re.search(r'^(.*?)-(\d+)(.*)$', last_filename)
-                if match1:
+def handle_image_saved(params : script_callbacks.ImageSaveParams):
+    logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
+    if hasattr(params.p, "intermed_is_active"):
+        # Copy final image to intermediates folder
+        if params.p.intermed_is_active and params.p.intermed_final_save:
+            directories = os.path.normpath(params.filename).split(os.sep)
+            if "intermediates" not in directories:
+                # Get last file name of current index
+                last_found = False
+                for index, (last_filename, last_path, last_done) in enumerate(params.p.intermed_last.values()):
+                    if not last_done:
+                        last_found = True
+                        params.p.intermed_last[index] = (last_filename, last_path, True)
+                        break
+
+                if last_found:
+                    # Convert final file name to intermediates filename
+                    match1 = re.search(r'^(.*?)-(\d+)(.*)$', last_filename)
                     new_number = str(int(match1.group(2)) + 1).zfill(3)
                     file_new = match1.group(1) + '-' + new_number + match1.group(3)
+                    #file_new_path = os.path.join(os.path.dirname(params.p.intermed_lastfile), file_new)
                     file_new_path = os.path.join(last_path, file_new)
-                    logger.debug(f"Original Filename: {filename}")
-                    logger.debug(f"New Intermediate Filename: {file_new_path}")
-                    
-                    try:
-                        shutil.copy(filename, file_new_path)
-                        # Update information for video processing or further steps
-                        params.p.intermed_files.append((index, file_new, None))
-                        
-                        # Save final image to another location (assuming filename is the final image path)
-                        current_dir = current_dir = os.path.dirname(os.path.abspath(__file__))
-                        file_path_temp = os.path.join(current_dir, "saved.png")
-                        shutil.copy(filename, file_path_temp)
-                        logger.debug(f"Final image saved to: {file_path_temp}")
-                        
-                    except Exception as e:
-                        logger.error(f"Error copying file: {str(e)}")
-                else:
-                    logger.error(f"Failed to parse filename: {filename}")
+                    logger.debug(f"last_filename: {filename_clean(last_filename)}")
+                    logger.debug(f"file_new_path: {filename_clean(file_new_path)}")
 
+                    shutil.copy(params.filename, file_new_path)
+
+                    # Add info for make video
+                    params.p.intermed_files.append((index, file_new, None))
+            # Copy the file to the specified directory as "saved.png"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path_temp = os.path.join(current_dir, "saved.png")
+    shutil.copy(params.filename, file_path_temp)
+    logger.debug(f"Image saved to {file_path_temp}")
 script_callbacks.on_image_saved(handle_image_saved)
