@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Viewer</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden; /* Remove any default margin and scrolling */
+      background-color: black; /* Set background color to black */
+    }
+    #imageContainer {
+      position: relative;
+      text-align: center; /* Center the image horizontally */
+      width: 100%;
+      height: 100%;
+      overflow: hidden; /* Hide any content that overflows the container */
+      cursor: grab; /* Change cursor to grab */
+    }
+    #imageContainer:active {
+      cursor: grabbing; /* Change cursor to grabbing while dragging */
+    }
+    img {
+      width: 100%;
+      height: 100%;
+      display: inline-block; /* Display as inline-block for center alignment */
+      border-radius: 8px; /* Rounded corners */
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Add shadow */
+      /*transition: transform 0.3s ease;*/
+      object-fit: contain; /* Maintain aspect ratio */
+      border: none; /* Remove border */
+      user-select: none; /* Prevent text selection */
+      pointer-events: none; /* Prevent default drag behavior */
+    }
+  </style>
+</head>
+<body>
+  <div id="imageContainer">
+    <img id="currentImage" src="saved.png" alt="Current Image">// Set your path.
+  </div>
+  <script>
+    var imgElement = document.getElementById('currentImage');
+    var zoomLevel = 1.0;
+    var zoomIncrement = 0.1;
+
+    // Variables to track mouse movement
+    var isDragging = false;
+    var startX, startY;
+    var startTranslateX = 0, startTranslateY = 0;
+
+    // Center the image initially
+    centerImage();
+
+    // Listen for the mouse wheel event
+    document.getElementById('imageContainer').addEventListener('wheel', function(event) {
+      if (event.deltaY < 0) {
+        // Zoom in when scrolling up
+        zoomIn();
+      } else {
+        // Zoom out when scrolling down
+        zoomOut();
+      }
+      event.preventDefault(); // Prevent default scrolling behavior
+    });
+
+    // Listen for the mouse move event
+    document.getElementById('imageContainer').addEventListener('mousedown', function(event) {
+      // Check if the left mouse button is pressed
+      if (event.button === 0) {
+        isDragging = true;
+        startX = event.clientX;
+        startY = event.clientY;
+        var transform = imgElement.style.transform.match(/translate\((.*)px, (.*)px\)/);
+        startTranslateX = transform ? parseFloat(transform[1]) : 0;
+        startTranslateY = transform ? parseFloat(transform[2]) : 0;
+        event.preventDefault(); // Prevent default browser behavior
+      }
+    });
+
+    document.addEventListener('mousemove', function(event) {
+      if (isDragging) {
+        var deltaX = event.clientX - startX;
+        var deltaY = event.clientY - startY;
+        var newTranslateX = startTranslateX + deltaX;
+        var newTranslateY = startTranslateY + deltaY;
+        imgElement.style.transform = 'scale(' + zoomLevel + ') translate(' + newTranslateX + 'px, ' + newTranslateY + 'px)';
+        event.preventDefault(); // Prevent default browser behavior
+      }
+    });
+
+    document.addEventListener('mouseup', function(event) {
+      isDragging = false;
+    });
+
+    function zoomIn() {
+      zoomLevel += zoomIncrement;
+      updateZoom();
+    }
+
+    function zoomOut() {
+      if (zoomLevel > 1.0) {
+        zoomLevel -= zoomIncrement;
+        updateZoom();
+      }
+    }
+
+    function updateZoom() {
+      var containerWidth = document.getElementById('imageContainer').offsetWidth;
+      var containerHeight = document.getElementById('imageContainer').offsetHeight;
+      var imageWidth = imgElement.offsetWidth * zoomLevel;
+      var imageHeight = imgElement.offsetHeight * zoomLevel;
+
+      var currentTransform = imgElement.style.transform.match(/translate\((.*)px, (.*)px\)/);
+      var currentTranslateX = currentTransform ? parseFloat(currentTransform[1]) : 0;
+      var currentTranslateY = currentTransform ? parseFloat(currentTransform[2]) : 0;
+
+      var newTranslateX = currentTranslateX;
+      var newTranslateY = currentTranslateY;
+
+      imgElement.style.transform = 'scale(' + zoomLevel + ') translate(' + newTranslateX + 'px, ' + newTranslateY + 'px)';
+
+      //If zoomLevel is greater than 1 and the image size is smaller than the container size, center the image
+      if (zoomLevel > 1.0 && imageWidth < containerWidth && imageHeight < containerHeight) {
+        centerImage();
+      } else if (zoomLevel === 1.0) {
+        centerImage(); // Center image only when zoom level is 1
+      }
+    }
+
+    function centerImage() {
+      imgElement.style.transform = 'scale(' + zoomLevel + ') translate(0px, 0px)';
+    }
+
+    // Refresh the image every 1 second (adjust as needed)
+    setInterval(refreshImage, 100);
+
+    function refreshImage() {
+      var imgElement = document.getElementById('currentImage');
+      var previousSrc = imgElement.src;
+      imgElement.src = "saved.png" + "?" + new Date().getTime(); // Set your path
+
+      // Check if the new src is equal to the previous one (which means the image wasn't found)
+      imgElement.onload = function() {
+        // Image loaded successfully
+      }
+
+      imgElement.onerror = function() {
+        // Image not found, revert to the previous src
+        imgElement.src = previousSrc;
+      }
+    }
+  </script>
+</body>
+</html>
+
+
+
