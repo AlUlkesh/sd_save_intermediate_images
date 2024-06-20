@@ -56,7 +56,8 @@ ui_items = {
     "ssii_hires": "hires",
 	"ssii_ffmpeg_bat": "Create Windows ffmpeg bat-files for lores and hires. Changes numbering logic.",
 	"ssii_bat_only": "Only bat-files, no video",
-    "ssii_debug": "Debug"
+    "ssii_debug": "Debug",
+    "ssii_live_preview": "Enable live preview on image viewer",
 }
 mode_choices = ["Make a video file", "Save intermediates with image number as suffix", "Standard operation"]
 debug_setup = False
@@ -68,7 +69,7 @@ def ui_setting_set(ui_settings, key, value):
     ui_settings[f"customscript/{this_module}/img2img/{key}/value"] = value
     return ui_settings
 
-def ssii_save_settings_do(ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
+def ssii_save_settings_do(ssii_is_active, ssii_final_save,ssii_live_preview, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
     ui_config_file = cmd_opts.ui_config_file
     ui_settings = {}
 
@@ -496,16 +497,21 @@ class Script(scripts.Script):
                     label=ui_items["ssii_debug"],
                     value=False
                 )
+            
+                ssii_live_preview = gr.Checkbox(
+                    label=ui_items["ssii_live_preview"],
+                    value=False)
             open_image_viewer_button = gr.Button("Open Image Viewer")
             open_image_viewer_button.click(fn=self.open_image_viewer)  
+                   
 
         ssii_save_settings.click(
             fn=ssii_save_settings_do,
-            inputs=[ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug],
+            inputs=[ssii_is_active, ssii_final_save,ssii_live_preview, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug],
             outputs=[ssii_message],
         )
 
-        return [ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug]
+        return [ssii_is_active, ssii_final_save,ssii_live_preview, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug]
     def open_image_viewer(self):
         filepath = os.path.join(os.path.dirname(__file__), 'viewer', 'Image Viewer.html')
         webbrowser.open_new('file://' + os.path.abspath(filepath))
@@ -554,9 +560,9 @@ class Script(scripts.Script):
 
         return (fullfn)
 
-    def process(self, p, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
+    def process(self, p, ssii_is_active, ssii_final_save,ssii_live_preview, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
         global logger, debug_setup
-        if ssii_is_active:
+        if ssii_is_active or ssii_live_preview:
 
             # Debug logging
             if ssii_debug:
@@ -690,7 +696,7 @@ class Script(scripts.Script):
                         logger.debug(f"batch_count, iteration, batch_size, batch_pos: {p.n_iter}, {p.iteration}, {p.batch_size}, {index}")
 
                         # Inits per seed
-                        if abs_step == 0:
+                        if abs_step  == 0:
                             if opts.save_images_add_number:
                                 digits = 5
                             else:
@@ -706,6 +712,7 @@ class Script(scripts.Script):
                                 # Set filename with pattern. Two versions depending on opts.save_images_add_number
                                 base_name = os.path.basename(base_name)
                                 substrings = base_name.split('-')
+    
                                 if opts.save_images_add_number:
                                     intermed_number = substrings[0]
                                     intermed_number = str(intermed_number).zfill(digits)
@@ -724,6 +731,7 @@ class Script(scripts.Script):
                                 p.intermed_last = {}
                                 p.intermed_pattern = {}
                             else:
+ 
                                 intermed_number = int(p.intermed_outpath_number[0]) + index
                                 intermed_number = str(intermed_number).zfill(digits)
                                 p.intermed_outpath_number.append(intermed_number)
@@ -779,19 +787,17 @@ class Script(scripts.Script):
                                     p.intermed_files.append((index, filename + ".png", None))
                                     p.intermed_last[index] = (filename + ".png", p.intermed_outpath, False)
                                     logger.debug(f"index, p.intermed_last[index]: {index}, {filename_clean(p.intermed_last[index][0])}, {filename_clean(p.intermed_last[index][1])}, {p.intermed_last[index][2]}")
-
-
-                                # Get current directory
-                                current_dir = os.path.dirname(os.path.abspath(__file__))
-                                file_path_temp = os.path.join(current_dir, 'viewer', 'saved.png')
-                                image.save(file_path_temp)   
-                                
+                    # Get current directory
+                            current_dir = os.path.dirname(os.path.abspath(__file__))
+                            file_path_temp = os.path.join(current_dir, 'viewer', 'saved.png')
+                            image.save(file_path_temp)        
+                                                                
                 return orig_callback_state(self, d)
 
             setattr(KDiffusionSampler, "callback_state", callback_state)
             setattr(TimestepsSampler, "callback_state", callback_state)
 
-    def postprocess(self, p, processed, ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
+    def postprocess(self, p, processed, ssii_is_active, ssii_final_save,ssii_live_preview, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug):
         logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
         setattr(KDiffusionSampler, "callback_state", orig_callback_state_KDiffusionSampler)
         setattr(TimestepsSampler, "callback_state", orig_callback_state_TimestepsSampler)
