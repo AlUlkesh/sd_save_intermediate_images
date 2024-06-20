@@ -40,7 +40,7 @@
 </head>
 <body>
   <div id="imageContainer">
-    <img id="currentImage" src="saved.png" alt="Current Image">// Set your path.
+    <img id="currentImage" src="viewer/saved.png" alt="Current Image">// Set your path.
   </div>
   <script>
     var imgElement = document.getElementById('currentImage');
@@ -123,7 +123,7 @@
 
       imgElement.style.transform = 'scale(' + zoomLevel + ') translate(' + newTranslateX + 'px, ' + newTranslateY + 'px)';
 
-      //If zoomLevel is greater than 1 and the image size is smaller than the container size, center the image
+      // If zoomLevel is greater than 1 and the image size is smaller than the container size, center the image
       if (zoomLevel > 1.0 && imageWidth < containerWidth && imageHeight < containerHeight) {
         centerImage();
       } else if (zoomLevel === 1.0) {
@@ -135,27 +135,26 @@
       imgElement.style.transform = 'scale(' + zoomLevel + ') translate(0px, 0px)';
     }
 
-    // Refresh the image every 1 second (adjust as needed)
-    setInterval(refreshImage, 100);
+    // Refresh the image (adjust as needed)
+    setInterval(refreshImage, 50);
 
     function refreshImage() {
-      var imgElement = document.getElementById('currentImage');
       var previousSrc = imgElement.src;
-      imgElement.src = "saved.png" + "?" + new Date().getTime(); // Set your path
+      imgElement.src = "viewer/saved.png" + "?" + new Date().getTime(); // Set your path
 
       // Check if the new src is equal to the previous one (which means the image wasn't found)
       imgElement.onload = function() {
         // Image loaded successfully
+        imgElement.style.display = 'inline-block'; // Show the image
       }
 
       imgElement.onerror = function() {
         // Image not found, revert to the previous src
         imgElement.src = previousSrc;
+        imgElement.style.display = 'none'; // Hide the image
+        // imgElement.alt = "Image not found.";
       }
     }
   </script>
 </body>
 </html>
-
-
-
