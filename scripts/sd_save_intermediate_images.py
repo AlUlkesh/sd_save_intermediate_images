@@ -392,6 +392,7 @@ class Script(scripts.Script):
             with gr.Row():
                 ssii_message = gr.HTML()
             with gr.Row():
+
                 ssii_is_active = gr.Checkbox(
                     label=ui_items["ssii_is_active"],
                     value=False
@@ -409,7 +410,7 @@ class Script(scripts.Script):
                     label=ui_items["ssii_intermediate_type"],
                     choices=["Denoised", "Noisy", "According to Live preview subject setting"],
                     value="Denoised"
-                )
+                )  
             with gr.Row():
                 ssii_every_n = gr.Number(
                     label=ui_items["ssii_every_n"],
@@ -495,18 +496,19 @@ class Script(scripts.Script):
                     label=ui_items["ssii_debug"],
                     value=False
                 )
+            open_image_viewer_button = gr.Button("Open Image Viewer")
+            open_image_viewer_button.click(fn=self.open_image_viewer)  
 
         ssii_save_settings.click(
             fn=ssii_save_settings_do,
             inputs=[ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug],
             outputs=[ssii_message],
         )
-        open_image_viewer_button = gr.Button("Open Image Viewer")
-        open_image_viewer_button.click(fn=self.open_image_viewer)
+
         return [ssii_is_active, ssii_final_save, ssii_intermediate_type, ssii_every_n, ssii_start_at_n, ssii_stop_at_n, ssii_mode, ssii_video_format, ssii_mp4_parms, ssii_video_fps, ssii_add_first_frames, ssii_add_last_frames, ssii_smooth, ssii_seconds, ssii_lores, ssii_hires, ssii_ffmpeg_bat, ssii_bat_only, ssii_debug]
     def open_image_viewer(self):
         filepath = os.path.join(os.path.dirname(__file__), 'Image Viewer.html')
-        webbrowser.open_new_tab('file://' + os.path.abspath(filepath))
+        webbrowser.open_new('file://' + os.path.abspath(filepath))
     def save_image_only_get_name(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
         # for description see modules.images.save_image, same code up saving of files
         logger.debug(f"func: {sys._getframe(0).f_code.co_name}")
@@ -776,12 +778,19 @@ class Script(scripts.Script):
                                     logger.debug(f"filename: {filename_clean(filename)}")
                                     p.intermed_files.append((index, filename + ".png", None))
                                     p.intermed_last[index] = (filename + ".png", p.intermed_outpath, False)
-                                    current_dir = os.path.dirname(os.path.abspath(__file__))
-                                    file_path_temp = os.path.join(current_dir,"saved.png")
-                                    image.save(file_path_temp)
                                     logger.debug(f"index, p.intermed_last[index]: {index}, {filename_clean(p.intermed_last[index][0])}, {filename_clean(p.intermed_last[index][1])}, {p.intermed_last[index][2]}")
 
-                               
+
+                                # Get current directory
+                                current_dir = os.path.dirname(os.path.abspath(__file__))
+                                # Create the path to the folder named viewer
+                                viewer_dir = os.path.join(current_dir, "viewer")
+                                # If the folder named viewer does not exist, create it
+                                if not os.path.exists(viewer_dir):
+                                    os.makedirs(viewer_dir)
+                                # Create the file path to include the viewer folder
+                                file_path_temp = os.path.join(viewer_dir, "saved.png")
+                                image.save(file_path_temp)         
                                 
                 return orig_callback_state(self, d)
 
@@ -825,9 +834,12 @@ def handle_image_saved(params : script_callbacks.ImageSaveParams):
 
                     # Add info for make video
                     params.p.intermed_files.append((index, file_new, None))
-            # Copy the file to the specified directory as "saved.png"
+    # Copy the file to the specified directory as "saved.png"
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path_temp = os.path.join(current_dir, "saved.png")
+    viewer_dir = os.path.join(current_dir, "viewer")
+    if not os.path.exists(viewer_dir):
+        os.makedirs(viewer_dir)
+    file_path_temp = os.path.join(viewer_dir, "saved.png")
     shutil.copy(params.filename, file_path_temp)
     logger.debug(f"Image saved to {file_path_temp}")
 script_callbacks.on_image_saved(handle_image_saved)
