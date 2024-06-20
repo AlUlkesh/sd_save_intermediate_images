@@ -696,7 +696,7 @@ class Script(scripts.Script):
                         logger.debug(f"batch_count, iteration, batch_size, batch_pos: {p.n_iter}, {p.iteration}, {p.batch_size}, {index}")
 
                         # Inits per seed
-                        if abs_step  == 0:
+                        if abs_step == 0:
                             if opts.save_images_add_number:
                                 digits = 5
                             else:
