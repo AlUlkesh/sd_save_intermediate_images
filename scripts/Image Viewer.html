@@ -40,7 +40,7 @@
 </head>
 <body>
   <div id="imageContainer">
-    <img id="currentImage" src="viewer/saved.png" alt="Current Image">// Set your path.
+    <img id="currentImage" src="saved.png" alt="Current Image">// Set your path.
   </div>
   <script>
     var imgElement = document.getElementById('currentImage');
@@ -140,7 +140,7 @@
 
     function refreshImage() {
       var previousSrc = imgElement.src;
-      imgElement.src = "viewer/saved.png" + "?" + new Date().getTime(); // Set your path
+      imgElement.src = "saved.png" + "?" + new Date().getTime(); // Set your path
 
       // Check if the new src is equal to the previous one (which means the image wasn't found)
       imgElement.onload = function() {
