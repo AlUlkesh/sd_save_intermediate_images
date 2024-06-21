@@ -127,5 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-#viewer folder
-viewer\saved.png
+
+# viewer folder
+scripts/viewer/saved.png
